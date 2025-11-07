@@ -1,0 +1,1 @@
+export default function About(){return <div className="container py-5"><h2>Research</h2><p>Explore our research programs.</p></div>}

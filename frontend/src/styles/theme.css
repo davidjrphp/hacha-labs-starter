@@ -1,0 +1,128 @@
+/* ================== THEME ================== */
+:root{
+  --brand-primary:#003a70;   /* deep blue */
+  --brand-accent:#00a889;    /* teal/green */
+  --brand-dark:#0b1a27;
+  --brand-light:#f4f8fb;
+}
+
+/* Light */
+:root[data-theme='light']{
+  color-scheme: light;
+  --bs-body-bg: var(--brand-light);
+  --bs-body-color:#1c2b36;
+  --bs-primary: var(--brand-primary);
+  --bs-link-color: var(--brand-primary);
+  --bs-success: var(--brand-accent);
+}
+body{
+  background: linear-gradient(180deg, rgba(0,58,112,.03), rgba(0,168,137,.02)) var(--brand-light);
+}
+
+/* Dark */
+:root[data-theme='dark']{
+  color-scheme: dark;
+  --bs-body-bg: var(--brand-dark);
+  --bs-body-color:#e8eef3;
+  --bs-primary: var(--brand-accent);
+  --bs-link-color: var(--brand-accent);
+}
+
+/* ================== NAVBAR ================== */
+.navbar .nav-link{
+  position:relative;
+  transition:color .2s ease;
+  padding-bottom:.25rem;
+  font-size:1.05rem;
+}
+.navbar .nav-link::after{
+  content:"";
+  position:absolute; left:0; bottom:.15rem;
+  width:0; height:2px; background:var(--brand-accent);
+  transition:width .2s ease;
+}
+.navbar .nav-link:hover, .navbar .nav-link:focus{ color:var(--brand-accent)!important; }
+.navbar .nav-link:hover::after{ width:100%; }
+.navbar .nav-link.active{ color:var(--brand-primary)!important; }
+.navbar .nav-link.active::after{ width:100%; background:var(--brand-primary); }
+
+.navbar .brand-logo{ height:56px; width:auto; }
+@media (max-width: 575.98px){
+  .navbar .brand-logo{ height:44px; }
+  .navbar .nav-link{ font-size:1rem; }
+}
+
+/* Buttons & cards */
+.btn-primary{ box-shadow:0 .35rem .9rem rgba(0,58,112,.25); border:none; }
+.btn-outline-secondary:hover{ border-color:var(--brand-accent); color:#fff; background:var(--brand-accent); }
+.card-hover{ transition:transform .2s ease, box-shadow .2s ease; }
+.card-hover:hover{ transform:translateY(-4px); box-shadow:0 .9rem 1.25rem rgba(0,0,0,.12); }
+
+/* ================== HERO ================== */
+
+/* Reduce hero height (cover media nicely) */
+.hero-fade .carousel-item > img,
+.hero-fade .carousel-item > video{
+  height:60vh;                /* desktop */
+  width:100%;
+  object-fit:cover;
+  filter:brightness(.75);
+}
+@media (max-width: 992px){
+  .hero-fade .carousel-item > img,
+  .hero-fade .carousel-item > video{ height:48vh; }
+}
+@media (max-width: 576px){
+  .hero-fade .carousel-item > img,
+  .hero-fade .carousel-item > video{ height:40vh; }
+}
+
+/* Static bottom action bar (appointment + socials) */
+.hero-bottombar{
+  position:absolute; left:50%; transform:translateX(-50%);
+  bottom:14px; z-index:3;
+  display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center;
+  background: linear-gradient(to right, rgba(0,58,112,.55), rgba(0,168,137,.45));
+  border-radius:9999px; padding:.45rem .7rem;
+  backdrop-filter:blur(2px);
+}
+.hero-bottombar .btn{ pointer-events:auto; }
+
+/* Service flyer: start left, glide towards center */
+.service-flyer{
+  position:absolute; left:2.5%; top:50%; transform:translateY(-50%);
+  z-index:3;
+}
+.service-flyer-inner{
+  display:inline-flex; align-items:center;
+  background:var(--brand-accent); color:#fff; font-weight:700;
+  padding:.55rem 1rem; border-radius:9999px;
+  box-shadow:0 .6rem 1.2rem rgba(0,168,137,.25);
+  white-space:nowrap;
+  animation: flyerMove 12s ease-in-out infinite;  /* SLOW */
+}
+
+/* Slow fade/glide cycle */
+@keyframes flyerMove{
+  0%   { opacity:0; transform: translateX(0) translateY(6px); }
+  12%  { opacity:1; transform: translateX(0) translateY(0); }
+  70%  { opacity:1; transform: translateX(34vw); } /* near center */
+  100% { opacity:0; transform: translateX(38vw) translateY(-6px); }
+}
+
+/* Optional bullet panel under the flyer */
+.service-panel{
+  position:absolute; left:2.5%; top:calc(50% + 46px); z-index:3;
+  background:rgba(255,255,255,.92);
+  border-left:4px solid var(--brand-accent);
+  border-radius:.5rem; padding:.6rem .9rem; max-width:46vw;
+  box-shadow:0 .75rem 1.25rem rgba(0,0,0,.1);
+}
+:root[data-theme='dark'] .service-panel{
+  background:rgba(11,26,39,.92);
+  color:#e8eef3;
+  border-color:var(--brand-accent);
+}
+.service-panel h6{ margin:0 0 .35rem 0; color:var(--brand-primary); }
+.service-panel ul{ margin:0; padding-left:1rem; }
+.service-panel li{ margin:.15rem 0; }

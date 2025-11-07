@@ -1,0 +1,10 @@
+# send NOTHING by default
+*
+# then explicitly allow only what the build needs
+!package.json
+!package-lock.json
+!vite.config.js
+!index.html
+!nginx.conf
+!src/**
+!public/**

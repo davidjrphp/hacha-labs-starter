@@ -1,0 +1,81 @@
+import { Link, NavLink } from "react-router-dom";
+import DarkModeToggle from "./DarkModeToggle.jsx";
+
+export default function NavbarX({ theme, setTheme }) {
+  return (
+    <nav className="navbar navbar-expand-lg bg-body-tertiary sticky-top border-bottom shadow-sm">
+      <div className="container">
+        {/* BRAND pinned left */}
+        <Link to="/" className="navbar-brand d-flex align-items-center me-3">
+          <img src="/hacha-logo.png" alt="Hacha Labs" className="brand-logo me-2" />
+          <span className="fw-semibold d-none d-sm-inline">Hacha Labs</span>
+        </Link>
+
+        {/* Toggler */}
+        <button
+          className="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#nav"
+          aria-controls="nav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span className="navbar-toggler-icon"></span>
+        </button>
+
+        {/* MENU pushed to right */}
+        <div className="collapse navbar-collapse" id="nav">
+          <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+            <li className="nav-item">
+              <NavLink end className="nav-link" to="/">Home</NavLink>
+            </li>
+
+            <li className="nav-item dropdown">
+              <button className="nav-link dropdown-toggle bg-transparent border-0" data-bs-toggle="dropdown">
+                Services
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                <li><Link className="dropdown-item" to="/services/chemistry">Clinical Chemistry</Link></li>
+                <li><Link className="dropdown-item" to="/services/haematology">Haematology</Link></li>
+                <li><Link className="dropdown-item" to="/services/serology">Serology</Link></li>
+                <li><Link className="dropdown-item" to="/services/microbiology">Microbiology</Link></li>
+                <li><Link className="dropdown-item" to="/services/molecular">Molecular</Link></li>
+                <li><Link className="dropdown-item" to="/services/wellness">Wellness Programs</Link></li>
+              </ul>
+            </li>
+
+            <li className="nav-item dropdown">
+              <button className="nav-link dropdown-toggle bg-transparent border-0" data-bs-toggle="dropdown">
+                Research
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                <li><Link className="dropdown-item" to="/research/human">Human-based</Link></li>
+                <li><Link className="dropdown-item" to="/research/socio">Socio-based</Link></li>
+                <li><Link className="dropdown-item" to="/research/adaptive">Adaptive</Link></li>
+              </ul>
+            </li>
+
+            {/* New tabs */}
+            <li className="nav-item"><NavLink className="nav-link" to="/about">About Us</NavLink></li>
+            <li className="nav-item"><NavLink className="nav-link" to="/contact">Contact</NavLink></li>
+
+            {/* Actions */}
+            <li className="nav-item d-none d-lg-block ms-lg-2">
+              <DarkModeToggle theme={theme} setTheme={setTheme} />
+            </li>
+            <li className="nav-item d-none d-lg-block">
+              <Link className="btn btn-primary ms-lg-2" to="/appointments">Request Appointment</Link>
+            </li>
+          </ul>
+
+          {/* Mobile actions */}
+          <div className="d-lg-none mt-3 d-flex gap-2">
+            <DarkModeToggle theme={theme} setTheme={setTheme} />
+            <Link className="btn btn-primary flex-grow-1" to="/appointments">Request Appointment</Link>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}

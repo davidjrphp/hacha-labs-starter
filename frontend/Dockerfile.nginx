@@ -1,0 +1,5 @@
+# frontend/Dockerfile.nginx
+FROM nginx:alpine
+# Copy the SPA to Nginx from the pre-built image produced by the 'frontend-build' service
+COPY --from=hacha-labs-starter-frontend-build:latest /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
