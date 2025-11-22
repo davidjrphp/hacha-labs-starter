@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/theme.css';
+import './styles/portal.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 import AOS from 'aos';

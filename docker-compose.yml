@@ -1,29 +1,12 @@
-version: "3.9"
 services:
-  mysql:
-    image: mysql:8.3
-    env_file: .env
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./backend/database/migrations:/docker-entrypoint-initdb.d
-    ports: ["3306:3306"]
-    healthcheck:
-      test: ["CMD", "mysqladmin","ping","-h","localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+  # mysql:  << REMOVE or comment out this whole service when using local DB >>
 
   php:
     build: ./backend
     env_file: .env
     volumes:
       - ./backend:/var/www
-    depends_on: [mysql]
+    # depends_on: [mysql]   << REMOVE
 
   web:
     image: nginx:alpine

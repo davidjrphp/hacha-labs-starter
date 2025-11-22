@@ -1,7 +1,23 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import DarkModeToggle from "./DarkModeToggle.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function NavbarX({ theme, setTheme }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const portalPath = user
+    ? user.role === "admin"
+      ? "/admin"
+      : user.role === "doctor"
+        ? "/doctor"
+        : "/appointments"
+    : "/login";
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
   return (
     <nav className="navbar navbar-expand-lg bg-body-tertiary sticky-top border-bottom shadow-sm">
       <div className="container">
@@ -56,7 +72,6 @@ export default function NavbarX({ theme, setTheme }) {
               </ul>
             </li>
 
-            {/* New tabs */}
             <li className="nav-item"><NavLink className="nav-link" to="/about">About Us</NavLink></li>
             <li className="nav-item"><NavLink className="nav-link" to="/contact">Contact</NavLink></li>
 
@@ -67,12 +82,38 @@ export default function NavbarX({ theme, setTheme }) {
             <li className="nav-item d-none d-lg-block">
               <Link className="btn btn-primary ms-lg-2" to="/appointments">Request Appointment</Link>
             </li>
+            {user ? (
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link fw-semibold" to={portalPath}>
+                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Portal
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <button className="nav-link btn btn-link px-0" type="button" onClick={handleLogout}>
+                    Sign Out
+                  </button>
+                </li>
+              </>
+            ) : (
+              <li className="nav-item"><NavLink className="nav-link" to="/login">Sign-In</NavLink></li>
+            )}
           </ul>
 
           {/* Mobile actions */}
           <div className="d-lg-none mt-3 d-flex gap-2">
             <DarkModeToggle theme={theme} setTheme={setTheme} />
-            <Link className="btn btn-primary flex-grow-1" to="/appointments">Request Appointment</Link>
+            {user ? (
+              <>
+                <Link className="btn btn-outline-primary flex-grow-1" to={portalPath}>Go to Portal</Link>
+                <button className="btn btn-secondary" type="button" onClick={handleLogout}>Sign Out</button>
+              </>
+            ) : (
+              <>
+                <Link className="btn btn-primary flex-grow-1" to="/appointments">Request Appointment</Link>
+                <Link className="btn btn-outline-secondary" to="/login">Sign-In</Link>
+              </>
+            )}
           </div>
         </div>
       </div>

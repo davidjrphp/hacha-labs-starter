@@ -25,6 +25,7 @@ const SERVICE_DETAILS = {
 export default function Hero(){
   const [slides, setSlides] = useState([]);
   const [idx, setIdx] = useState(0);
+  const [heroIdx, setHeroIdx] = useState(0);
 
   // load hero media (image/video)
   useEffect(() => {
@@ -32,6 +33,25 @@ export default function Hero(){
       .then(r => setSlides(r.data))
       .catch(() => setSlides([]));
   }, []);
+
+  useEffect(() => { setHeroIdx(0); }, [slides.length]);
+
+  // rotate hero slides manually
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIdx((current) => (current + 1) % slides.length);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [slides]);
+
+  const handleHeroNav = (direction) => {
+    if (slides.length === 0) return;
+    setHeroIdx((current) => {
+      const total = slides.length;
+      return (current + direction + total) % total;
+    });
+  };
 
   // rotate services slowly (12s per item)
   useEffect(() => {
@@ -74,10 +94,10 @@ export default function Hero(){
 
   return (
     <div className="position-relative hero-fade">
-      <div id="hero" className="carousel slide" data-bs-ride="carousel">
+      <div className="carousel slide carousel-fade">
         <div className="carousel-inner">
           {slides.map((s, k) => (
-            <div key={s.id ?? k} className={`carousel-item ${k === 0 ? "active" : ""}`}>
+            <div key={s.id ?? k} className={`carousel-item ${heroIdx === k ? "active" : ""}`}>
               {s.type === "video" ? (
                 <video className="w-100" autoPlay muted loop playsInline>
                   <source src={s.path} type="video/mp4" />
@@ -96,10 +116,10 @@ export default function Hero(){
         </div>
 
         {/* Controls */}
-        <button className="carousel-control-prev" type="button" data-bs-target="#hero" data-bs-slide="prev">
+        <button className="carousel-control-prev" type="button" onClick={() => handleHeroNav(-1)}>
           <span className="carousel-control-prev-icon"></span>
         </button>
-        <button className="carousel-control-next" type="button" data-bs-target="#hero" data-bs-slide="next">
+        <button className="carousel-control-next" type="button" onClick={() => handleHeroNav(1)}>
           <span className="carousel-control-next-icon"></span>
         </button>
 
