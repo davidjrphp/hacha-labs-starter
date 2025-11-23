@@ -14,10 +14,21 @@ export default function PortalLayout({
   subtitle,
   menuItems = defaultMenu,
   onLogout,
+  onMenuSelect,
   children,
 }) {
   const { user } = useAuth();
   const [activeKey, setActiveKey] = useState(menuItems[0]?.key ?? "dashboard");
+  const [expanded, setExpanded] = useState({});
+
+  const handleMenuClick = (key) => {
+    setActiveKey(key);
+    if (onMenuSelect) onMenuSelect(key);
+  };
+
+  const toggleGroup = (key) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <div className="portal-shell">
@@ -30,17 +41,48 @@ export default function PortalLayout({
           </div>
         </div>
         <div className="portal-menu">
-          {menuItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={item.key === activeKey ? "active" : ""}
-              onClick={() => setActiveKey(item.key)}
-            >
-              <i className={`bi ${item.icon}`}></i>
-              {item.label}
-            </button>
-          ))}
+          {menuItems.map((item) =>
+            item.children ? (
+              <div key={item.key} className="w-100">
+                <button
+                  type="button"
+                  className={`d-flex justify-content-between align-items-center ${expanded[item.key] ? "active" : ""}`}
+                  onClick={() => toggleGroup(item.key)}
+                >
+                  <span>
+                    <i className={`bi ${item.icon} me-2`}></i>
+                    {item.label}
+                  </span>
+                  <i className={`bi ${expanded[item.key] ? "bi-chevron-up" : "bi-chevron-down"}`}></i>
+                </button>
+                {expanded[item.key] && (
+                  <div className="portal-submenu">
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        type="button"
+                        className={child.key === activeKey ? "active" : ""}
+                        onClick={() => handleMenuClick(child.key)}
+                      >
+                        <i className={`bi ${child.icon} me-2`}></i>
+                        {child.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                key={item.key}
+                type="button"
+                className={item.key === activeKey ? "active" : ""}
+                onClick={() => handleMenuClick(item.key)}
+              >
+                <i className={`bi ${item.icon}`}></i>
+                {item.label}
+              </button>
+            )
+          )}
         </div>
         <div className="p-3 border-top border-light border-opacity-10 small text-center text-white-50">
           <div className="fw-semibold text-white">{user?.full_name}</div>

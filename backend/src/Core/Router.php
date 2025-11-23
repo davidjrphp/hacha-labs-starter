@@ -4,6 +4,11 @@ class Router {
   private array $routes = ['GET'=>[], 'POST'=>[]];
   public function get($path,$handler){ $this->routes['GET'][$path]=$handler; }
   public function post($path,$handler){ $this->routes['POST'][$path]=$handler; }
+  public function register(string $method, string $path, array $handler){
+    $method = strtoupper($method);
+    if(!isset($this->routes[$method])) $this->routes[$method]=[];
+    $this->routes[$method][$path]=$handler;
+  }
   public function dispatch(){
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);

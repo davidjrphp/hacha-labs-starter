@@ -51,6 +51,76 @@ class MediaController
         ];
     }
 
+    public function adminList()
+    {
+        $this->requireAdmin();
+        $pdo = DB::conn();
+        $rows = $pdo->query("SELECT id,type,path,caption,is_hero,created_at FROM media ORDER BY created_at DESC")->fetchAll();
+        foreach ($rows as &$row) {
+            $row['path'] = $this->assetUrl($row['path']);
+        }
+        return $rows;
+    }
+
+    public function update()
+    {
+        $this->requireAdmin();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            return ['message' => 'Invalid media id'];
+        }
+        $fields = [];
+        $params = [];
+        if (array_key_exists('caption', $data)) {
+            $fields[] = 'caption = ?';
+            $params[] = trim((string)$data['caption']);
+        }
+        if (array_key_exists('is_hero', $data)) {
+            $fields[] = 'is_hero = ?';
+            $params[] = (int)filter_var($data['is_hero'], FILTER_VALIDATE_BOOLEAN);
+        }
+        if (empty($fields)) {
+            return ['message' => 'Nothing to update'];
+        }
+        $params[] = $id;
+        $pdo = DB::conn();
+        $stmt = $pdo->prepare('UPDATE media SET ' . implode(',', $fields) . ' WHERE id = ?');
+        $stmt->execute($params);
+        return ['message' => 'Media updated'];
+    }
+
+    public function delete()
+    {
+        $this->requireAdmin();
+        $payload = $_POST;
+        if (empty($payload)) {
+            $payload = json_decode(file_get_contents('php://input'), true) ?? [];
+        }
+        $id = (int)($payload['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            return ['message' => 'Invalid media id'];
+        }
+        $pdo = DB::conn();
+        $stmt = $pdo->prepare('SELECT path FROM media WHERE id=? LIMIT 1');
+        $stmt->execute([$id]);
+        $media = $stmt->fetch();
+        if (!$media) {
+            http_response_code(404);
+            return ['message' => 'Media not found'];
+        }
+        if (!str_starts_with($media['path'], 'http')) {
+            $file = __DIR__ . '/../../public' . $media['path'];
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+        $pdo->prepare('DELETE FROM media WHERE id=?')->execute([$id]);
+        return ['message' => 'Media deleted'];
+    }
+
     private function requireAdmin(): void
     {
         if ((int)($_SESSION['role_id'] ?? 0) !== 1) {

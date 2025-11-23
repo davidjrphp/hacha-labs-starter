@@ -55,6 +55,82 @@ class NewsController
         ];
     }
 
+    public function adminList()
+    {
+        $this->requireAdmin();
+        $pdo = DB::conn();
+        $rows = $pdo->query("SELECT id,title,body,cover_path,is_published,created_at FROM news ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['cover_path'] = $this->assetUrl($row['cover_path']);
+        }
+        return $rows;
+    }
+
+    public function update()
+    {
+        $this->requireAdmin();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = (int)($data['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            return ['message' => 'Invalid news id'];
+        }
+        $fields = [];
+        $params = [];
+        if (array_key_exists('title', $data)) {
+            $fields[] = 'title = ?';
+            $params[] = trim((string)$data['title']);
+        }
+        if (array_key_exists('body', $data)) {
+            $fields[] = 'body = ?';
+            $params[] = trim((string)$data['body']);
+        }
+        if (array_key_exists('is_published', $data)) {
+            $fields[] = 'is_published = ?';
+            $params[] = (int)filter_var($data['is_published'], FILTER_VALIDATE_BOOLEAN);
+        }
+        if (empty($fields)) {
+            return ['message' => 'Nothing to update'];
+        }
+        $params[] = $id;
+        $pdo = DB::conn();
+        $stmt = $pdo->prepare('UPDATE news SET ' . implode(',', $fields) . ' WHERE id = ?');
+        $stmt->execute($params);
+        return ['message' => 'News updated'];
+    }
+
+    public function delete()
+    {
+        $this->requireAdmin();
+        $payload = $_POST;
+        if (empty($payload)) {
+            $payload = json_decode(file_get_contents('php://input'), true) ?? [];
+        }
+        $id = (int)($payload['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            return ['message' => 'Invalid news id'];
+        }
+
+        $pdo = DB::conn();
+        $stmt = $pdo->prepare('SELECT cover_path FROM news WHERE id=? LIMIT 1');
+        $stmt->execute([$id]);
+        $news = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$news) {
+            http_response_code(404);
+            return ['message' => 'News not found'];
+        }
+        if (!empty($news['cover_path']) && !str_starts_with($news['cover_path'], 'http')) {
+            $file = __DIR__ . '/../../public' . $news['cover_path'];
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+
+        $pdo->prepare('DELETE FROM news WHERE id=?')->execute([$id]);
+        return ['message' => 'News deleted'];
+    }
+
     private function requireAdmin(): void
     {
         if ((int)($_SESSION['role_id'] ?? 0) !== 1) {

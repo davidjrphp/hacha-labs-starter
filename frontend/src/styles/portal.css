@@ -55,6 +55,21 @@
   transition: background 0.2s ease, color 0.2s ease;
 }
 
+.portal-submenu {
+  padding-left: 0.5rem;
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.portal-submenu button {
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  padding-left: 1.5rem;
+}
+
 .portal-menu button:hover {
   background: rgba(255,255,255,0.08);
 }
@@ -182,6 +197,23 @@
   border-top: 1px solid rgba(15,31,61,0.08);
   font-size: 0.9rem;
   color: #5a6c8f;
+}
+
+.portal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 20, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.portal-modal {
+  width: min(520px, 100%);
+  border-radius: 18px;
+  box-shadow: 0 30px 60px rgba(13, 37, 63, 0.35);
 }
 
 @media (max-width: 992px) {
