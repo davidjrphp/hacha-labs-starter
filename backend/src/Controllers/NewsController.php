@@ -66,6 +66,25 @@ class NewsController
         return $rows;
     }
 
+    public function show()
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            return ['message' => 'Invalid news id'];
+        }
+        $pdo = DB::conn();
+        $stmt = $pdo->prepare("SELECT id,title,body,cover_path,created_at FROM news WHERE id=? AND is_published=1 LIMIT 1");
+        $stmt->execute([$id]);
+        $news = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$news) {
+            http_response_code(404);
+            return ['message' => 'News not found'];
+        }
+        $news['cover_path'] = $this->assetUrl($news['cover_path']);
+        return $news;
+    }
+
     public function update()
     {
         $this->requireAdmin();

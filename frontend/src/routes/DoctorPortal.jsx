@@ -9,7 +9,7 @@ export default function DoctorPortal() {
 
   const todaySessions = useMemo(
     () => [
-      { patient: "Thato S.", slot: "09:30 • Molecular", status: "Confirmed" },
+      { patient: "David M.", slot: "09:30 • Molecular", status: "Confirmed" },
       { patient: "Nandi B.", slot: "11:15 • Referral", status: "Awaiting Docs" },
       { patient: "Ivan K.", slot: "14:00 • Review", status: "Pending Approval" },
     ],

@@ -37,7 +37,7 @@ export default function PortalLayout({
           <img src="/hacha-logo.png" alt="Hacha Labs" />
           <div>
             <div className="fw-semibold">Hacha Labs</div>
-            <small className="text-white-50 text-uppercase">Control Center</small>
+            <small className="text-white-50 text-uppercase">Control Portal</small>
           </div>
         </div>
         <div className="portal-menu">

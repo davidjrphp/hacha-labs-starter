@@ -15,6 +15,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import AdminPortal from "./routes/AdminPortal.jsx";
 import DoctorPortal from "./routes/DoctorPortal.jsx";
 import PublicShell from "./components/PublicShell.jsx";
+import NewsDetail from "./routes/NewsDetail.jsx";
 
 export default function App(){
   const [theme,setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -30,6 +31,7 @@ export default function App(){
             <Route path="/services/:slug" element={<Service/>}/>
             <Route path="/research" element={<Research/>}/>
             <Route path="/research/:slug" element={<ResearchItem/>}/>
+            <Route path="/news/:id" element={<NewsDetail/>}/>
             <Route path="/login" element={<Login/>}/>
             <Route path="/register" element={<Register/>}/>
           </Route>

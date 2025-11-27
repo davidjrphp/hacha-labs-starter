@@ -126,3 +126,11 @@ body{
 .service-panel h6{ margin:0 0 .35rem 0; color:var(--brand-primary); }
 .service-panel ul{ margin:0; padding-left:1rem; }
 .service-panel li{ margin:.15rem 0; }
+
+.news-modal{
+  max-width:720px;
+}
+.news-modal .card-body{
+  max-height:70vh;
+  overflow-y:auto;
+}

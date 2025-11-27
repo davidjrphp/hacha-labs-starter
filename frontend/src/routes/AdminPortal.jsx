@@ -124,9 +124,9 @@ export default function AdminPortal() {
   }, [districts, facilityForm.province_id]);
 
   const appointments = [
-    { patient: "Lungile D.", type: "Referral", doctor: "Dr. Patel", status: "Awaiting", slot: "Nov 28 • 09:00" },
-    { patient: "Kamogelo T.", type: "New", doctor: "Dr. Patel", status: "Approved", slot: "Nov 29 • 13:00" },
-    { patient: "Brenda M.", type: "Returning", doctor: "Dr. Okoye", status: "Declined", slot: "Dec 02 • 10:00" },
+    { patient: "Lungu D.", type: "Referral", doctor: "Dr. Muwo", status: "Awaiting", slot: "Nov 28 • 09:00" },
+    { patient: "Chanda T.", type: "New", doctor: "Dr. Lameck", status: "Approved", slot: "Nov 29 • 13:00" },
+    { patient: "Brenda M.", type: "Returning", doctor: "Dr. Chabu", status: "Declined", slot: "Dec 02 • 10:00" },
   ];
 
   const normalizedMedia = (payload) =>
@@ -627,7 +627,7 @@ export default function AdminPortal() {
       await http.post("/admin/news", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setNewsFeedback({ type: "success", message: "News published to landing feed." });
+      setNewsFeedback({ type: "success", message: "News published." });
       setNewsForm({ title: "", body: "" });
       setNewsCover(null);
     } catch (error) {
@@ -641,8 +641,8 @@ export default function AdminPortal() {
     <>
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-          <div className="portal-section-title mb-1">Operations snapshot</div>
-          <p className="text-muted mb-0">Live counts from appointment workflows and staff directory.</p>
+          <div className="portal-section-title mb-1">Operations</div>
+          <p className="text-muted mb-0">Appointment workflows.</p>
         </div>
         <button className="btn btn-outline-secondary btn-sm" onClick={loadStats} disabled={statsLoading}>
           <i className="bi bi-arrow-repeat me-1"></i>
@@ -718,13 +718,13 @@ export default function AdminPortal() {
         <div className="col-lg-6">
           <div className="card portal-card h-100">
             <div className="card-body">
-              <div className="portal-section-title mb-2">Hero &amp; media curator</div>
-              <p className="text-muted">
+              <div className="portal-section-title mb-2">Media curator</div>
+              {/* <p className="text-muted">
                 Refresh the landing hero carousel with new lab visuals or appointment promos.
-              </p>
+              </p> */}
               <form onSubmit={handleHeroSubmit}>
                 <div className="mb-3">
-                  <label className="form-label">Slide Caption</label>
+                  <label className="form-label">Caption</label>
                   <input
                     className="form-control"
                     value={heroForm.title}
@@ -775,9 +775,9 @@ export default function AdminPortal() {
           <div className="card portal-card h-100">
             <div className="card-body">
               <div className="portal-section-title mb-2">News &amp; announcements</div>
-              <p className="text-muted">
+              {/* <p className="text-muted">
                 Draft quick bites that sync to the landing page feed and mobile push alerts.
-              </p>
+              </p> */}
               <form onSubmit={handleNewsSubmit}>
                 <div className="mb-3">
                   <label className="form-label">Headline</label>
@@ -796,7 +796,7 @@ export default function AdminPortal() {
                     rows="4"
                     value={newsForm.body}
                     onChange={(e) => setNewsForm({ ...newsForm, body: e.target.value })}
-                    placeholder="Full description that appears on the landing feed."
+                    placeholder="Full description."
                     required
                   ></textarea>
                 </div>
@@ -808,7 +808,7 @@ export default function AdminPortal() {
                     accept="image/png,image/jpeg,image/webp"
                     onChange={(e) => setNewsCover(e.target.files?.[0] || null)}
                   />
-                  <small className="text-muted">Optional but recommended for visual impact.</small>
+                  <small className="text-muted">Optional</small>
                 </div>
                 {newsFeedback && (
                   <div className={`alert alert-${newsFeedback.type} py-2`} role="alert">
@@ -836,10 +836,10 @@ export default function AdminPortal() {
       <div className="col-lg-4">
         <div className="card portal-card h-100">
           <div className="card-body">
-            <div className="portal-section-title mb-2">Add team member</div>
-            <p className="text-muted">
+            <div className="portal-section-title mb-2">Add staff member</div>
+            {/* <p className="text-muted">
               Publish clinical specialists and support staff to the landing page carousel.
-            </p>
+            </p> */}
             <form onSubmit={handleStaffSubmit}>
               <div className="mb-3">
                 <label className="form-label">Full name</label>
@@ -1629,15 +1629,15 @@ export default function AdminPortal() {
     if (activePanel === "people") return renderPeopleSection();
     if (activePanel === "content-hero") return renderHeroSection();
     if (activePanel === "content-news") return renderNewsSection();
-    if (activePanel === "appointments") return renderPlaceholder("Appointments console coming soon.");
+    if (activePanel === "appointments") return renderPlaceholder("Appointments module");
     if (activePanel === "system") return renderSystemSection();
     return renderDashboard();
   };
 
   return (
     <PortalLayout
-      title="Administrative Command Deck"
-      subtitle="Monitor all patient journeys, staff visibility, and hero storytelling from a single workspace."
+      title="Administrator Portal"
+      subtitle="Monitor and manage all the administrative operations"
       menuItems={MENU}
       onMenuSelect={setActivePanel}
       onLogout={async () => {

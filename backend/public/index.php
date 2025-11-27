@@ -28,6 +28,7 @@ $router->get('/api/admin/media',  [Controllers\MediaController::class,'adminList
 $router->post('/api/admin/media/update', [Controllers\MediaController::class,'update']);
 $router->post('/api/admin/media/delete', [Controllers\MediaController::class,'delete']);
 $router->get('/api/news',       [Controllers\NewsController::class,'latest']);
+$router->get('/api/news/show',  [Controllers\NewsController::class,'show']);
 $router->post('/api/admin/news',[Controllers\NewsController::class,'store']);
 $router->get('/api/admin/news', [Controllers\NewsController::class,'adminList']);
 $router->post('/api/admin/news/update',[Controllers\NewsController::class,'update']);

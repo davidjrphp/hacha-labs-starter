@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import http from "../api/http.js";
 
 export default function NewsFeed() {
@@ -23,13 +24,14 @@ export default function NewsFeed() {
       <div className="row g-3">
         {items.map((n) => (
           <div className="col-md-4" key={n.id}>
-            <div className="card h-100 card-hover">
+            <Link to={`/news/${n.id}`} className="card h-100 card-hover text-decoration-none text-reset">
               {n.cover_path && <img src={n.cover_path} className="card-img-top" alt="cover" />}
               <div className="card-body">
                 <h5 className="card-title">{n.title}</h5>
                 <p className="card-text small">{n.excerpt}...</p>
+                <span className="text-primary small fw-semibold">Read more →</span>
               </div>
-            </div>
+            </Link>
           </div>
         ))}
       </div>
