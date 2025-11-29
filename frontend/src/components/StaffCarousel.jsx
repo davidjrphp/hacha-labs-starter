@@ -10,8 +10,21 @@ const fallback = [
 
 export default function StaffCarousel(){
   const [staff,setStaff]=useState([]);
-  useEffect(()=>{ http.get('/staff').then(r=>setStaff(r.data)).catch(()=>setStaff([])); },[]);
-  const data = (staff && staff.length) ? staff : fallback;
+  useEffect(()=>{
+    http.get('/staff')
+      .then((response)=>{
+        const payload = response?.data;
+        if(Array.isArray(payload)){
+          setStaff(payload);
+        }else if(Array.isArray(payload?.data)){
+          setStaff(payload.data);
+        }else{
+          setStaff([]);
+        }
+      })
+      .catch(()=>setStaff([]));
+  },[]);
+  const data = Array.isArray(staff) && staff.length ? staff : fallback;
 
   return (
     <section className="bg-body-tertiary py-5" data-aos="fade-up">

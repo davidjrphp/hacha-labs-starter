@@ -21,6 +21,18 @@ const MENU = [
   { key: "system", icon: "bi-gear", label: "System preferences" },
 ];
 const STAFF_PER_PAGE = 6;
+const TITLE_CATEGORIES = ["Management", "Technical", "Support", "Other"];
+const APPOINTMENT_TYPE_LABELS = {
+  new: "New patient",
+  returning: "Returning",
+  referral: "Referral",
+};
+const STATUS_BADGE = {
+  pending: "warning",
+  approved: "success",
+  declined: "danger",
+  completed: "secondary",
+};
 
 function PortalModal({ show, title, onClose, children }) {
   if (!show) return null;
@@ -64,6 +76,7 @@ export default function AdminPortal() {
   const [showProvinceModal, setShowProvinceModal] = useState(false);
   const [showDistrictModal, setShowDistrictModal] = useState(false);
   const [showFacilityModal, setShowFacilityModal] = useState(false);
+  const [showTitleModal, setShowTitleModal] = useState(false);
   const [provinceForm, setProvinceForm] = useState({ name: "" });
   const [districtForm, setDistrictForm] = useState({ province_id: "", name: "" });
   const [facilityForm, setFacilityForm] = useState({
@@ -79,7 +92,19 @@ export default function AdminPortal() {
   const [provinceSubmitting, setProvinceSubmitting] = useState(false);
   const [districtSubmitting, setDistrictSubmitting] = useState(false);
   const [facilitySubmitting, setFacilitySubmitting] = useState(false);
-  const [staffForm, setStaffForm] = useState({ name: "", role_title: "", bio: "", sort_order: 0, is_visible: true });
+  const [titleForm, setTitleForm] = useState({ name: "", category: "" });
+  const [titleSubmitting, setTitleSubmitting] = useState(false);
+  const defaultStaffForm = {
+    name: "",
+    staff_title_id: "",
+    email: "",
+    bio: "",
+    sort_order: 0,
+    is_visible: true,
+    password: "",
+    password_confirm: "",
+  };
+  const [staffForm, setStaffForm] = useState({ ...defaultStaffForm });
   const [staffPhoto, setStaffPhoto] = useState(null);
   const [staffSubmitting, setStaffSubmitting] = useState(false);
   const [staffFeedback, setStaffFeedback] = useState(null);
@@ -93,6 +118,9 @@ export default function AdminPortal() {
   });
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(null);
+  const [dashboardAppointments, setDashboardAppointments] = useState([]);
+  const [dashboardApptLoading, setDashboardApptLoading] = useState(false);
+  const [dashboardApptError, setDashboardApptError] = useState(null);
   const [staffRecords, setStaffRecords] = useState([]);
   const [staffPendingPhotos, setStaffPendingPhotos] = useState({});
   const [staffAction, setStaffAction] = useState(null);
@@ -101,10 +129,11 @@ export default function AdminPortal() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffPage, setStaffPage] = useState(1);
   const [staffMeta, setStaffMeta] = useState({ page: 1, per_page: STAFF_PER_PAGE, total: 0, total_pages: 1 });
+  const [staffTitles, setStaffTitles] = useState([]);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  const statCards = useMemo(
+const statCards = useMemo(
     () => [
       { key: "total", label: "Total appointments", value: statsData.total_appointments, icon: "bi-grid-3x2-gap", color: COLORS[0] },
       { key: "new", label: "New appointments", value: statsData.new_appointments, icon: "bi-plus-circle", color: COLORS[5] },
@@ -116,6 +145,15 @@ export default function AdminPortal() {
     [statsData]
   );
 
+  const formatSlotLabel = (value) => {
+    if (!value) return "—";
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
+  };
+
   const facilityDistrictOptions = useMemo(() => {
     if (!facilityForm.province_id) {
       return districts;
@@ -123,11 +161,14 @@ export default function AdminPortal() {
     return districts.filter((district) => String(district.province_id) === String(facilityForm.province_id));
   }, [districts, facilityForm.province_id]);
 
-  const appointments = [
-    { patient: "Lungu D.", type: "Referral", doctor: "Dr. Muwo", status: "Awaiting", slot: "Nov 28 • 09:00" },
-    { patient: "Chanda T.", type: "New", doctor: "Dr. Lameck", status: "Approved", slot: "Nov 29 • 13:00" },
-    { patient: "Brenda M.", type: "Returning", doctor: "Dr. Chabu", status: "Declined", slot: "Dec 02 • 10:00" },
-  ];
+  const loadStaffTitles = useCallback(async () => {
+    try {
+      const { data } = await http.get("/admin/staff/titles");
+      setStaffTitles(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Unable to load staff titles", error);
+    }
+  }, []);
 
   const normalizedMedia = (payload) =>
     Array.isArray(payload)
@@ -151,6 +192,8 @@ export default function AdminPortal() {
           ...member,
           is_visible: member.is_visible === 1 || member.is_visible === true,
           sort_order: Number.isFinite(member.sort_order) ? member.sort_order : 0,
+          staff_title_id: member.staff_title_id ? String(member.staff_title_id) : "",
+          email: member.email || "",
         }))
       : [];
 
@@ -167,6 +210,25 @@ export default function AdminPortal() {
       setStatsLoading(false);
     }
   }, []);
+
+  const loadDashboardAppointments = useCallback(async () => {
+    setDashboardApptLoading(true);
+    setDashboardApptError(null);
+    try {
+      const { data } = await http.get("/admin/appointments/latest", { params: { limit: 6 } });
+      setDashboardAppointments(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setDashboardApptError(error.response?.data?.message || "Unable to load appointment pulse.");
+      setDashboardAppointments([]);
+    } finally {
+      setDashboardApptLoading(false);
+    }
+  }, []);
+
+  const refreshDashboard = useCallback(() => {
+    loadStats();
+    loadDashboardAppointments();
+  }, [loadStats, loadDashboardAppointments]);
 
   const loadHeroAssets = useCallback(async () => {
     setHeroLoading(true);
@@ -262,8 +324,9 @@ export default function AdminPortal() {
   useEffect(() => {
     if (activePanel === "dashboard") {
       loadStats();
+      loadDashboardAppointments();
     }
-  }, [activePanel, loadStats]);
+  }, [activePanel, loadStats, loadDashboardAppointments]);
 
   useEffect(() => {
     if (activePanel === "content-hero") {
@@ -276,14 +339,16 @@ export default function AdminPortal() {
   useEffect(() => {
     if (activePanel === "people") {
       loadStaff(staffPage);
+      loadStaffTitles();
     }
-  }, [activePanel, staffPage, loadStaff]);
+  }, [activePanel, staffPage, loadStaff, loadStaffTitles]);
 
-  useEffect(() => {
-    if (activePanel === "system") {
-      loadGeoData();
-    }
-  }, [activePanel, loadGeoData]);
+useEffect(() => {
+  if (activePanel === "system") {
+    loadGeoData();
+    loadStaffTitles();
+  }
+}, [activePanel, loadGeoData, loadStaffTitles]);
 
   const updateHeroDraft = (id, field, value) => {
     setHeroAssets((prev) => prev.map((asset) => (asset.id === id ? { ...asset, [field]: value } : asset)));
@@ -391,22 +456,37 @@ export default function AdminPortal() {
   const handleStaffSubmit = async (e) => {
     e.preventDefault();
     setStaffFeedback(null);
+    if (!staffForm.staff_title_id) {
+      setStaffFeedback({ type: "danger", message: "Please select a staff title." });
+      return;
+    }
     if (!staffPhoto) {
       setStaffFeedback({ type: "danger", message: "Please select a profile photo." });
       return;
     }
+    if (!staffForm.email || !staffForm.email.includes("@")) {
+      setStaffFeedback({ type: "danger", message: "Valid email is required." });
+      return;
+    }
+    if (!staffForm.password || staffForm.password !== staffForm.password_confirm) {
+      setStaffFeedback({ type: "danger", message: "Passwords do not match." });
+      return;
+    }
     const formData = new FormData();
     formData.append("name", staffForm.name);
-    formData.append("role_title", staffForm.role_title);
+    formData.append("staff_title_id", staffForm.staff_title_id);
+    formData.append("email", staffForm.email);
     formData.append("bio", staffForm.bio);
     formData.append("sort_order", staffForm.sort_order ?? 0);
     formData.append("is_visible", staffForm.is_visible ? "1" : "0");
     formData.append("photo", staffPhoto);
+    formData.append("password", staffForm.password);
+    formData.append("password_confirmation", staffForm.password_confirm);
     setStaffSubmitting(true);
     try {
       await http.post("/admin/staff", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setStaffFeedback({ type: "success", message: "Staff profile added to carousel." });
-      setStaffForm({ name: "", role_title: "", bio: "", sort_order: 0, is_visible: true });
+      setStaffForm({ ...defaultStaffForm });
       setStaffPhoto(null);
       setStaffPage(1);
       if (activePanel === "people") {
@@ -423,15 +503,34 @@ export default function AdminPortal() {
   };
 
   const persistStaffUpdate = async (member) => {
+    if (!member.staff_title_id) {
+      setStaffAction({ type: "danger", message: "Please select a staff title before saving." });
+      return;
+    }
+    if (!member.email || !member.email.includes("@")) {
+      setStaffAction({ type: "danger", message: "Please provide a valid email address." });
+      return;
+    }
+    const wantsPasswordChange = !!member.password || !!member.password_confirm;
+    if (wantsPasswordChange && member.password !== member.password_confirm) {
+      setStaffAction({ type: "danger", message: "New password and confirmation must match." });
+      return;
+    }
+
     setStaffBusyId(member.id);
     setStaffAction({ type: "info", message: "Saving staff profile…" });
     const formData = new FormData();
     formData.append("id", member.id);
     formData.append("name", member.name ?? "");
-    formData.append("role_title", member.role_title ?? "");
+    formData.append("staff_title_id", member.staff_title_id || "");
+    formData.append("email", member.email ?? "");
     formData.append("bio", member.bio ?? "");
     formData.append("sort_order", member.sort_order ?? 0);
     formData.append("is_visible", member.is_visible ? "1" : "0");
+    if (member.password) {
+      formData.append("password", member.password);
+      formData.append("password_confirmation", member.password_confirm ?? member.password);
+    }
     if (staffPendingPhotos[member.id]) {
       formData.append("photo", staffPendingPhotos[member.id]);
     }
@@ -545,7 +644,7 @@ export default function AdminPortal() {
     }
   };
 
-  const submitFacility = async (e) => {
+const submitFacility = async (e) => {
     e.preventDefault();
     if (!facilityForm.province_id || !facilityForm.district_id || !facilityForm.name.trim()) {
       setGeoFeedback({ type: "danger", message: "Fill all required facility fields." });
@@ -583,6 +682,32 @@ export default function AdminPortal() {
       });
     } finally {
       setFacilitySubmitting(false);
+    }
+  };
+
+  const submitTitle = async (e) => {
+    e.preventDefault();
+    if (!titleForm.name.trim()) {
+      setGeoFeedback({ type: "danger", message: "Title name is required." });
+      return;
+    }
+    setTitleSubmitting(true);
+    try {
+      await sendForm("/admin/staff/titles", {
+        name: titleForm.name.trim(),
+        category: titleForm.category,
+      });
+      setGeoFeedback({ type: "success", message: "Staff title added." });
+      setTitleForm({ name: "", category: "" });
+      setShowTitleModal(false);
+      await loadStaffTitles();
+    } catch (error) {
+      setGeoFeedback({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to add staff title.",
+      });
+    } finally {
+      setTitleSubmitting(false);
     }
   };
 
@@ -644,9 +769,13 @@ export default function AdminPortal() {
           <div className="portal-section-title mb-1">Operations</div>
           <p className="text-muted mb-0">Appointment workflows.</p>
         </div>
-        <button className="btn btn-outline-secondary btn-sm" onClick={loadStats} disabled={statsLoading}>
+        <button
+          className="btn btn-outline-secondary btn-sm"
+          onClick={refreshDashboard}
+          disabled={statsLoading || dashboardApptLoading}
+        >
           <i className="bi bi-arrow-repeat me-1"></i>
-          {statsLoading ? "Refreshing…" : "Refresh metrics"}
+          {statsLoading || dashboardApptLoading ? "Refreshing…" : "Refresh metrics"}
         </button>
       </div>
 
@@ -697,19 +826,41 @@ export default function AdminPortal() {
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((appt) => (
-                  <tr key={appt.patient}>
-                    <td>{appt.patient}</td>
-                    <td>{appt.type}</td>
-                    <td>{appt.doctor}</td>
-                    <td>{appt.slot}</td>
-                    <td>
-                      <span className="badge text-bg-light text-capitalize">{appt.status}</span>
+                {dashboardApptLoading ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-3">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <div className="text-muted mt-2 small">Loading appointments…</div>
                     </td>
                   </tr>
-                ))}
+                ) : dashboardAppointments.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center text-muted py-3">
+                      No appointments found.
+                    </td>
+                  </tr>
+                ) : (
+                  dashboardAppointments.map((appt) => (
+                    <tr key={appt.id}>
+                      <td>{appt.patient_name || "—"}</td>
+                      <td>{APPOINTMENT_TYPE_LABELS[appt.type] || appt.type || "—"}</td>
+                      <td>{appt.doctor_name || "Unassigned"}</td>
+                      <td>{formatSlotLabel(appt.slot_start)}</td>
+                      <td>
+                        <span className={`badge text-bg-${STATUS_BADGE[appt.status] || "light"} text-capitalize`}>
+                          {appt.status || "pending"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+            {dashboardApptError && (
+              <div className="alert alert-warning mt-2 mb-0" role="alert">
+                {dashboardApptError}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -837,9 +988,6 @@ export default function AdminPortal() {
         <div className="card portal-card h-100">
           <div className="card-body">
             <div className="portal-section-title mb-2">Add staff member</div>
-            {/* <p className="text-muted">
-              Publish clinical specialists and support staff to the landing page carousel.
-            </p> */}
             <form onSubmit={handleStaffSubmit}>
               <div className="mb-3">
                 <label className="form-label">Full name</label>
@@ -851,11 +999,28 @@ export default function AdminPortal() {
                 />
               </div>
               <div className="mb-3">
-                <label className="form-label">Role title</label>
+                <label className="form-label">Staff title</label>
+                <select
+                  className="form-select"
+                  value={staffForm.staff_title_id}
+                  onChange={(e) => setStaffForm({ ...staffForm, staff_title_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select title</option>
+                  {staffTitles.map((title) => (
+                    <option key={title.id} value={title.id}>
+                      {title.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-3">
+                <label className="form-label">Email</label>
                 <input
+                  type="email"
                   className="form-control"
-                  value={staffForm.role_title}
-                  onChange={(e) => setStaffForm({ ...staffForm, role_title: e.target.value })}
+                  value={staffForm.email}
+                  onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
                   required
                 />
               </div>
@@ -900,6 +1065,26 @@ export default function AdminPortal() {
                   onChange={(e) => setStaffPhoto(e.target.files?.[0] || null)}
                   required
                 />
+              </div>
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Password</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={staffForm.password}
+                    onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Confirm password</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={staffForm.password_confirm}
+                    onChange={(e) => setStaffForm({ ...staffForm, password_confirm: e.target.value })}
+                  />
+                </div>
               </div>
               {staffFeedback && (
                 <div className={`alert alert-${staffFeedback.type} py-2`} role="alert">
@@ -951,14 +1136,15 @@ export default function AdminPortal() {
                     <thead>
                       <tr>
                         <th style={{ width: "130px" }}>Photo</th>
-                        <th>Name &amp; role</th>
-                        <th>Bio</th>
-                        <th style={{ width: "110px" }}>Order</th>
-                        <th style={{ width: "110px" }}>Visible</th>
-                        <th style={{ width: "160px" }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                    <th>Name &amp; title</th>
+                    <th>Bio</th>
+                    <th style={{ width: "110px" }}>Order</th>
+                    <th style={{ width: "230px" }}>Login access</th>
+                    <th style={{ width: "110px" }}>Visible</th>
+                    <th style={{ width: "160px" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
                       {staffRecords.map((member) => (
                         <tr key={member.id}>
                           <td>
@@ -976,38 +1162,67 @@ export default function AdminPortal() {
                             />
                           </td>
                           <td>
+                          <input
+                            className="form-control form-control-sm mb-2"
+                            value={member.name ?? ""}
+                            onChange={(e) => updateStaffDraft(member.id, "name", e.target.value)}
+                          />
+                          <select
+                            className="form-select form-select-sm"
+                            value={member.staff_title_id || ""}
+                            onChange={(e) => updateStaffDraft(member.id, "staff_title_id", e.target.value)}
+                          >
+                            <option value="">Select title</option>
+                            {staffTitles.map((title) => (
+                              <option key={title.id} value={title.id}>
+                                {title.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <textarea
+                            className="form-control form-control-sm"
+                            rows="2"
+                            value={member.bio ?? ""}
+                            onChange={(e) => updateStaffDraft(member.id, "bio", e.target.value)}
+                          ></textarea>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            className="form-control form-control-sm"
+                            value={member.sort_order ?? 0}
+                            onChange={(e) =>
+                              updateStaffDraft(member.id, "sort_order", Number(e.target.value))
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="form-control form-control-sm"
+                            type="email"
+                            value={member.email ?? ""}
+                            onChange={(e) => updateStaffDraft(member.id, "email", e.target.value)}
+                          />
+                          <input
+                            className="form-control form-control-sm mt-1"
+                            type="password"
+                            placeholder="New password (optional)"
+                            value={member.password ?? ""}
+                            onChange={(e) => updateStaffDraft(member.id, "password", e.target.value)}
+                          />
+                          <input
+                            className="form-control form-control-sm mt-1"
+                            type="password"
+                            placeholder="Confirm new password"
+                            value={member.password_confirm ?? ""}
+                            onChange={(e) => updateStaffDraft(member.id, "password_confirm", e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <div className="form-check form-switch">
                             <input
-                              className="form-control form-control-sm mb-2"
-                              value={member.name ?? ""}
-                              onChange={(e) => updateStaffDraft(member.id, "name", e.target.value)}
-                            />
-                            <input
-                              className="form-control form-control-sm"
-                              value={member.role_title ?? ""}
-                              onChange={(e) => updateStaffDraft(member.id, "role_title", e.target.value)}
-                            />
-                          </td>
-                          <td>
-                            <textarea
-                              className="form-control form-control-sm"
-                              rows="2"
-                              value={member.bio ?? ""}
-                              onChange={(e) => updateStaffDraft(member.id, "bio", e.target.value)}
-                            ></textarea>
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              className="form-control form-control-sm"
-                              value={member.sort_order ?? 0}
-                              onChange={(e) =>
-                                updateStaffDraft(member.id, "sort_order", Number(e.target.value))
-                              }
-                            />
-                          </td>
-                          <td>
-                            <div className="form-check form-switch">
-                              <input
                                 className="form-check-input"
                                 type="checkbox"
                                 checked={!!member.is_visible}
@@ -1393,6 +1608,9 @@ export default function AdminPortal() {
             </div>
           )}
           <div className="d-flex flex-wrap gap-3">
+            <button className="btn btn-outline-primary" onClick={() => setShowTitleModal(true)}>
+              <i className="bi bi-bookmark-plus me-2"></i>Add staff title
+            </button>
             <button className="btn btn-outline-primary" onClick={() => setShowProvinceModal(true)}>
               <i className="bi bi-geo me-2"></i>Add province
             </button>
@@ -1460,6 +1678,43 @@ export default function AdminPortal() {
           </div>
         </div>
       </div>
+
+      <PortalModal show={showTitleModal} title="Add Staff Title" onClose={() => setShowTitleModal(false)}>
+        <form onSubmit={submitTitle}>
+          <div className="mb-3">
+            <label className="form-label">Title name</label>
+            <input
+              className="form-control"
+              value={titleForm.name}
+              onChange={(e) => setTitleForm({ ...titleForm, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Category</label>
+            <select
+              className="form-select"
+              value={titleForm.category}
+              onChange={(e) => setTitleForm({ ...titleForm, category: e.target.value })}
+            >
+              <option value="">Select category</option>
+              {TITLE_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="d-flex justify-content-end gap-2">
+            <button type="button" className="btn btn-outline-secondary" onClick={() => setShowTitleModal(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" type="submit" disabled={titleSubmitting}>
+              {titleSubmitting ? "Saving…" : "Save title"}
+            </button>
+          </div>
+        </form>
+      </PortalModal>
 
       <PortalModal show={showProvinceModal} title="Add Province" onClose={() => setShowProvinceModal(false)}>
         <form onSubmit={submitProvince}>

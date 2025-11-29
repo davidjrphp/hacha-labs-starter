@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import AdminPortal from "./routes/AdminPortal.jsx";
 import DoctorPortal from "./routes/DoctorPortal.jsx";
+import DoctorSchedule from "./routes/DoctorSchedule.jsx";
 import PublicShell from "./components/PublicShell.jsx";
 import NewsDetail from "./routes/NewsDetail.jsx";
 
@@ -39,6 +40,7 @@ export default function App(){
           <Route path="/messages" element={<Protected roles={['patient']}><Messages/></Protected>}/>
           <Route path="/admin" element={<Protected roles={['admin']}><AdminPortal/></Protected>}/>
           <Route path="/doctor" element={<Protected roles={['doctor']}><DoctorPortal/></Protected>}/>
+          <Route path="/doctor/schedule" element={<Protected roles={['doctor']}><DoctorSchedule/></Protected>}/>
         </Routes>
       </BrowserRouter>
     </AuthProvider>

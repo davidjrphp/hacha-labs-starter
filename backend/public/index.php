@@ -13,6 +13,8 @@ $router->post('/api/admin/staff', [Controllers\StaffController::class,'store']);
 $router->get('/api/admin/staff',  [Controllers\StaffController::class,'adminList']);
 $router->post('/api/admin/staff/update', [Controllers\StaffController::class,'update']);
 $router->post('/api/admin/staff/delete', [Controllers\StaffController::class,'delete']);
+$router->get('/api/admin/staff/titles', [Controllers\StaffController::class,'titles']);
+$router->post('/api/admin/staff/titles', [Controllers\StaffController::class,'storeTitle']);
 $router->get('/api/admin/stats', [Controllers\StatsController::class,'overview']);
 $router->get('/api/provinces', [Controllers\FacilityController::class,'provinces']);
 $router->post('/api/admin/provinces', [Controllers\FacilityController::class,'storeProvince']);
@@ -35,6 +37,11 @@ $router->post('/api/admin/news/update',[Controllers\NewsController::class,'updat
 $router->post('/api/admin/news/delete',[Controllers\NewsController::class,'delete']);
 
 $router->get('/api/doctors/availability', [Controllers\AppointmentController::class,'availability']);
+$router->get('/api/appointments/check', [Controllers\AppointmentController::class,'checkAvailability']);
+$router->get('/api/admin/appointments/latest', [Controllers\AppointmentController::class,'adminLatest']);
+$router->get('/api/doctor/appointments', [Controllers\AppointmentController::class,'doctorSchedule']);
+$router->get('/api/doctor/appointments/list', [Controllers\AppointmentController::class,'doctorAppointmentsList']);
+$router->post('/api/doctor/appointments/respond', [Controllers\AppointmentController::class,'doctorRespond']);
 $router->get('/api/appointments/summary', [Controllers\AppointmentController::class,'summary']);
 $router->post('/api/appointments',        [Controllers\AppointmentController::class,'create']);
 $router->get('/api/appointments/me',      [Controllers\AppointmentController::class,'mine']);

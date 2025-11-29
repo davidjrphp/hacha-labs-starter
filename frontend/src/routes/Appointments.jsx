@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PortalLayout from "../components/PortalLayout.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -36,6 +36,7 @@ const formatAppointmentId = (id) => `APT-${String(id).padStart(5, "0")}`;
 export default function Appointments() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [activePanel, setActivePanel] = useState("appointments");
 
   const [summary, setSummary] = useState({ upcoming_visits: 0, pending_approvals: 0, unread_messages: 0 });
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -50,6 +51,9 @@ export default function Appointments() {
   const [providers, setProviders] = useState([]);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
   const [facilitiesLoading, setFacilitiesLoading] = useState(true);
+  const [specialistAlert, setSpecialistAlert] = useState(null);
+  const [doctorAvailability, setDoctorAvailability] = useState({ available: true, message: null, next_available: null });
+  const [checkingDoctor, setCheckingDoctor] = useState(false);
 
   const [appointmentForm, setAppointmentForm] = useState({
     type: "new",
@@ -71,6 +75,18 @@ export default function Appointments() {
 
   const [cancelForm, setCancelForm] = useState({ appointmentId: "", reason: "" });
   const [rescheduleForm, setRescheduleForm] = useState({ appointmentId: "", newDate: "" });
+  const formatDateTimeFriendly = useCallback((value) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
 
   const stats = useMemo(
     () => [
@@ -186,6 +202,60 @@ export default function Appointments() {
     }
   };
 
+  useEffect(() => {
+    if (!appointmentForm.date || !appointmentForm.doctorId) {
+      setDoctorAvailability({ available: true, message: null, next_available: null });
+      setSpecialistAlert(null);
+      return;
+    }
+    let cancelled = false;
+    setCheckingDoctor(true);
+    http
+      .get("/appointments/check", {
+        params: {
+          doctor_id: appointmentForm.doctorId,
+          slot_start: appointmentForm.date,
+        },
+      })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const isAvailable = data?.available !== false;
+        const message = data?.message || "";
+        const nextAvailable = data?.next_available || null;
+        setDoctorAvailability({ available: !!isAvailable, message, next_available: nextAvailable });
+        const specialist = doctors.find((doc) => String(doc.id) === String(appointmentForm.doctorId));
+        const specialistName = specialist?.name || "Selected specialist";
+        const dateLabel = formatDateTimeFriendly(appointmentForm.date);
+        if (isAvailable) {
+          setSpecialistAlert({
+            type: "success",
+            message: `${specialistName} is available on ${dateLabel}.`,
+          });
+        } else {
+          const nextLabel = nextAvailable ? formatDateTimeFriendly(nextAvailable) : null;
+          setSpecialistAlert({
+            type: "warning",
+            message:
+              `${specialistName} is already booked for ${dateLabel}.` +
+              (nextLabel ? ` Next availability after ${nextLabel}.` : ""),
+          });
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const errMessage = error.response?.data?.message || "Unable to verify specialist availability.";
+        setDoctorAvailability({ available: false, message: errMessage, next_available: null });
+        setSpecialistAlert({ type: "danger", message: errMessage });
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingDoctor(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentForm.doctorId, appointmentForm.date, formatDateTimeFriendly, doctors]);
+
   const handleAppointmentChange = (field, value) => {
     setAppointmentForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -203,6 +273,17 @@ export default function Appointments() {
     }
     if (appointmentForm.type === "referral" && (!appointmentForm.facilityId || !appointmentForm.providerId)) {
       setFormFeedback({ type: "danger", message: "Referral requests require facility and provider details." });
+      return;
+    }
+
+    if (!doctorAvailability.available) {
+      const nextLabel = doctorAvailability.next_available ? formatDateTimeFriendly(doctorAvailability.next_available) : null;
+      setFormFeedback({
+        type: "danger",
+        message:
+          (doctorAvailability.message || "Specialist already booked for that time.") +
+          (nextLabel ? ` Next available slot after ${nextLabel}. Please choose another time.` : " Please choose another time."),
+      });
       return;
     }
 
@@ -266,21 +347,18 @@ export default function Appointments() {
     setRescheduleForm({ ...rescheduleForm, newDate: "" });
   };
 
-  return (
-    <PortalLayout
-      title="Patient & Referral Hub"
-      subtitle="Book, track, and collaborate with your care team without leaving this workspace."
-      menuItems={[
-        { key: "appointments", icon: "bi-calendar-heart", label: "Appointments" },
-        { key: "history", icon: "bi-clock-history", label: "History" },
-        { key: "documents", icon: "bi-file-earmark-arrow-up", label: "Documents" },
-        { key: "messages", icon: "bi-chat-dots", label: "Messages" },
-      ]}
-      onLogout={async () => {
-        await logout();
-        navigate("/login", { replace: true });
-      }}
-    >
+  const renderPlaceholder = (title, description, action) => (
+    <div className="card portal-card">
+      <div className="card-body text-center py-5">
+        <h5 className="mb-2">{title}</h5>
+        <p className="text-muted mb-3">{description}</p>
+        {action}
+      </div>
+    </div>
+  );
+
+  const renderAppointmentPanel = () => (
+    <>
       <div className="row g-4 mb-4">
         {stats.map((stat) => (
           <div className="col-md-4" key={stat.label}>
@@ -337,14 +415,19 @@ export default function Appointments() {
                   </select>
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">Preferred doctor</label>
+                  <label className="form-label d-flex justify-content-between align-items-center">
+                    <span>Preferred specialist</span>
+                    {checkingDoctor && (
+                      <span className="spinner-border spinner-border-sm text-primary" role="status"></span>
+                    )}
+                  </label>
                   <select
                     className="form-select"
                     value={appointmentForm.doctorId}
                     onChange={(e) => handleAppointmentChange("doctorId", e.target.value)}
                     disabled={doctorsLoading}
                   >
-                    <option value="">Select doctor</option>
+                    <option value="">Select specialist</option>
                     {doctors.map((doc) => (
                       <option key={doc.id} value={doc.id}>
                         {doc.name} • {doc.specialty}
@@ -362,6 +445,21 @@ export default function Appointments() {
                     required
                   />
                 </div>
+                {specialistAlert && (
+                  <div className="col-12">
+                    <div
+                      className={`alert alert-${specialistAlert.type} d-flex align-items-center gap-2`}
+                      role="alert"
+                    >
+                      <i
+                        className={`bi ${
+                          specialistAlert.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill"
+                        }`}
+                      ></i>
+                      <span>{specialistAlert.message}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="col-md-4">
                   <label className="form-label">Age</label>
                   <input
@@ -624,6 +722,59 @@ export default function Appointments() {
           </div>
         </div>
       </div>
+    </>
+  );
+
+  const renderActivePanel = () => {
+    switch (activePanel) {
+      case "appointments":
+        return renderAppointmentPanel();
+      case "history":
+        return renderPlaceholder(
+          "Visit history coming soon",
+          "You'll be able to see approved, cancelled, and completed appointments here.",
+          <button className="btn btn-outline-primary" disabled>
+            View history
+          </button>
+        );
+      case "documents":
+        return renderPlaceholder(
+          "Referral documents",
+          "Upload imaging, lab reports, and referral paperwork for your team.",
+          <button className="btn btn-outline-secondary" disabled>
+            Manage documents
+          </button>
+        );
+      case "messages":
+        return renderPlaceholder(
+          "Secure inbox",
+          "Chat with coordinators and specialists in one threaded experience.",
+          <button className="btn btn-success" disabled>
+            Launch inbox
+          </button>
+        );
+      default:
+        return renderAppointmentPanel();
+    }
+  };
+
+  return (
+    <PortalLayout
+      title="Patient & Referral Hub"
+      subtitle="Book, track, and collaborate with your care team without leaving this workspace."
+      menuItems={[
+        { key: "appointments", icon: "bi-calendar-heart", label: "Appointments" },
+        { key: "history", icon: "bi-clock-history", label: "History" },
+        { key: "documents", icon: "bi-file-earmark-arrow-up", label: "Documents" },
+        { key: "messages", icon: "bi-chat-dots", label: "Messages" },
+      ]}
+      onMenuSelect={setActivePanel}
+      onLogout={async () => {
+        await logout();
+        navigate("/login", { replace: true });
+      }}
+    >
+      {renderActivePanel()}
     </PortalLayout>
   );
 }

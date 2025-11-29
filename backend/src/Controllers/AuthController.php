@@ -43,13 +43,15 @@ class AuthController
     public function login()
     {
         $credentials = json_decode(file_get_contents('php://input'), true) ?? [];
+        $email = trim((string)($credentials['email'] ?? ''));
+        $password = (string)($credentials['password'] ?? '');
 
         $pdo = DB::conn();
         $stmt = $pdo->prepare("SELECT u.*, r.name AS role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE email=? LIMIT 1");
-        $stmt->execute([$credentials['email'] ?? '']);
+        $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$user || !password_verify($credentials['password'] ?? '', $user['password_hash'])) {
+        if (!$user || !password_verify($password, $user['password_hash'])) {
             http_response_code(401);
             return ['message' => 'Invalid credentials'];
         }

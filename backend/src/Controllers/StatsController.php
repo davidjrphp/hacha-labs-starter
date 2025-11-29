@@ -11,7 +11,7 @@ class StatsController
         $pdo = DB::conn();
 
         $totalAppointments   = (int)$pdo->query("SELECT COUNT(*) FROM appointments")->fetchColumn();
-        $newAppointments     = (int)$pdo->query("SELECT COUNT(*) FROM appointments WHERE status='pending'")->fetchColumn();
+        $newAppointments     = (int)$pdo->query("SELECT COUNT(*) FROM appointments WHERE type='new'")->fetchColumn();
         $approvedAppointments= (int)$pdo->query("SELECT COUNT(*) FROM appointments WHERE status='approved'")->fetchColumn();
         $rejectedAppointments= (int)$pdo->query("SELECT COUNT(*) FROM appointments WHERE status='declined'")->fetchColumn();
         $closedAppointments  = (int)$pdo->query("SELECT COUNT(*) FROM appointments WHERE status='completed'")->fetchColumn();
