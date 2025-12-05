@@ -1,5 +1,4 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import DarkModeToggle from "./DarkModeToggle.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function NavbarX({ theme, setTheme }) {
@@ -49,7 +48,7 @@ export default function NavbarX({ theme, setTheme }) {
 
             <li className="nav-item dropdown">
               <button className="nav-link dropdown-toggle bg-transparent border-0" data-bs-toggle="dropdown">
-                Services
+                Lab Services
               </button>
               <ul className="dropdown-menu dropdown-menu-end">
                 <li><Link className="dropdown-item" to="/services/chemistry">Clinical Chemistry</Link></li>
@@ -72,16 +71,20 @@ export default function NavbarX({ theme, setTheme }) {
               </ul>
             </li>
 
+            <li className="nav-item dropdown">
+              <button className="nav-link dropdown-toggle bg-transparent border-0" data-bs-toggle="dropdown">
+                Specialized services
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                <li><Link className="dropdown-item" to="/specialized/agri">Agri-services</Link></li>
+                <li><Link className="dropdown-item" to="/specialized/other">Other</Link></li>
+              </ul>
+            </li>
+
             <li className="nav-item"><NavLink className="nav-link" to="/about">About Us</NavLink></li>
             <li className="nav-item"><NavLink className="nav-link" to="/contact">Contact</NavLink></li>
 
             {/* Actions */}
-            <li className="nav-item d-none d-lg-block ms-lg-2">
-              <DarkModeToggle theme={theme} setTheme={setTheme} />
-            </li>
-            <li className="nav-item d-none d-lg-block">
-              <Link className="btn btn-primary ms-lg-2" to="/appointments">Request Appointment</Link>
-            </li>
             {user ? (
               <>
                 <li className="nav-item">
@@ -102,7 +105,6 @@ export default function NavbarX({ theme, setTheme }) {
 
           {/* Mobile actions */}
           <div className="d-lg-none mt-3 d-flex gap-2">
-            <DarkModeToggle theme={theme} setTheme={setTheme} />
             {user ? (
               <>
                 <Link className="btn btn-outline-primary flex-grow-1" to={portalPath}>Go to Portal</Link>
@@ -110,7 +112,6 @@ export default function NavbarX({ theme, setTheme }) {
               </>
             ) : (
               <>
-                <Link className="btn btn-primary flex-grow-1" to="/appointments">Request Appointment</Link>
                 <Link className="btn btn-outline-secondary" to="/login">Sign-In</Link>
               </>
             )}

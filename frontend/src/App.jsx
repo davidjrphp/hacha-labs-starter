@@ -15,8 +15,11 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import AdminPortal from "./routes/AdminPortal.jsx";
 import DoctorPortal from "./routes/DoctorPortal.jsx";
 import DoctorSchedule from "./routes/DoctorSchedule.jsx";
+import DoctorAppointmentDetail from "./routes/DoctorAppointmentDetail.jsx";
 import PublicShell from "./components/PublicShell.jsx";
 import NewsDetail from "./routes/NewsDetail.jsx";
+import SpecializedAgri from "./routes/SpecializedAgri.jsx";
+import SpecializedOther from "./routes/SpecializedOther.jsx";
 
 export default function App(){
   const [theme,setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -35,12 +38,15 @@ export default function App(){
             <Route path="/news/:id" element={<NewsDetail/>}/>
             <Route path="/login" element={<Login/>}/>
             <Route path="/register" element={<Register/>}/>
+            <Route path="/specialized/agri" element={<SpecializedAgri/>}/>
+            <Route path="/specialized/other" element={<SpecializedOther/>}/>
           </Route>
           <Route path="/appointments" element={<Protected roles={['patient']}><Appointments/></Protected>}/>
           <Route path="/messages" element={<Protected roles={['patient']}><Messages/></Protected>}/>
           <Route path="/admin" element={<Protected roles={['admin']}><AdminPortal/></Protected>}/>
           <Route path="/doctor" element={<Protected roles={['doctor']}><DoctorPortal/></Protected>}/>
           <Route path="/doctor/schedule" element={<Protected roles={['doctor']}><DoctorSchedule/></Protected>}/>
+          <Route path="/doctor/appointments/:id" element={<Protected roles={['doctor']}><DoctorAppointmentDetail/></Protected>}/>
         </Routes>
       </BrowserRouter>
     </AuthProvider>

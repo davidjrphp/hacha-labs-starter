@@ -330,7 +330,14 @@ class AppointmentController {
     $stmt->bindValue(':doctor_id', $doctorId, PDO::PARAM_INT);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $now = new \DateTimeImmutable('now');
+    foreach ($rows as &$row) {
+      $slotEnd = $row['slot_end'] ?? $row['slot_start'];
+      $endTime = $slotEnd ? new \DateTimeImmutable($slotEnd) : $now;
+      $row['is_overdue'] = ($endTime < $now) && !in_array($row['status'], ['completed'], true);
+    }
+    return $rows;
   }
 
   public function doctorRespond(){
@@ -344,11 +351,16 @@ class AppointmentController {
     $appointmentId = (int)($_POST['appointment_id'] ?? 0);
     $action = strtolower(trim($_POST['action'] ?? ''));
     $note = trim($_POST['note'] ?? '');
-    if ($appointmentId <= 0 || !in_array($action, ['approve', 'decline'], true)) {
+    if ($appointmentId <= 0 || !in_array($action, ['approve', 'decline', 'close'], true)) {
       http_response_code(422);
       return ['message' => 'Invalid request'];
     }
-    $newStatus = $action === 'approve' ? 'approved' : 'declined';
+    $newStatus = match($action){
+      'approve' => 'approved',
+      'decline' => 'declined',
+      'close'   => 'completed',
+      default   => 'pending'
+    };
     $apptStmt = $pdo->prepare("SELECT id FROM appointments WHERE id = ? AND doctor_id = ? LIMIT 1");
     $apptStmt->execute([$appointmentId, $doctorId]);
     if (!$apptStmt->fetchColumn()) {
@@ -358,6 +370,95 @@ class AppointmentController {
     $update = $pdo->prepare("UPDATE appointments SET status = ?, status_reason = ? WHERE id = ? LIMIT 1");
     $update->execute([$newStatus, $note ?: null, $appointmentId]);
     return ['message' => 'Appointment updated', 'status' => $newStatus];
+  }
+
+  public function doctorAppointmentShow(){
+    $userId = $this->requireDoctor();
+    $pdo = DB::conn();
+    $doctorId = $this->resolveDoctorId($pdo, $userId, false);
+    if (!$doctorId) {
+      http_response_code(404);
+      return ['message' => 'Specialist profile not found'];
+    }
+    $appointmentId = (int)($_GET['id'] ?? 0);
+    if ($appointmentId <= 0) {
+      http_response_code(422);
+      return ['message' => 'Invalid appointment id'];
+    }
+    $stmt = $pdo->prepare("
+      SELECT a.*, p.full_name AS patient_name, p.email AS patient_email, p.phone AS patient_phone,
+             hf.name AS facility_name, fp.provider_name, fp.title AS provider_title
+      FROM appointments a
+      JOIN users p ON p.id = a.patient_id
+      LEFT JOIN healthcare_facilities hf ON hf.id = a.referring_facility_id
+      LEFT JOIN facility_providers fp ON fp.id = a.referring_provider_id
+      WHERE a.id = :id AND a.doctor_id = :doctor_id
+      LIMIT 1
+    ");
+    $stmt->bindValue(':id', $appointmentId, PDO::PARAM_INT);
+    $stmt->bindValue(':doctor_id', $doctorId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+      http_response_code(404);
+      return ['message' => 'Appointment not found'];
+    }
+    $now = new \DateTimeImmutable('now');
+    $slotEnd = $row['slot_end'] ?? $row['slot_start'];
+    $endTime = $slotEnd ? new \DateTimeImmutable($slotEnd) : $now;
+    $row['is_overdue'] = ($endTime < $now) && !in_array($row['status'], ['completed'], true);
+    return $row;
+  }
+
+  public function doctorNotifications(){
+    $userId = $this->requireDoctor();
+    $pdo = DB::conn();
+    $doctorId = $this->resolveDoctorId($pdo, $userId, false);
+    if (!$doctorId) {
+      return ['total' => 0, 'items' => []];
+    }
+
+    $items = [];
+    $pendingAppts = $pdo->prepare("
+      SELECT a.id AS appointment_id, a.slot_start, a.slot_end, a.status, a.type, a.service_code, p.full_name AS patient_name
+      FROM appointments a
+      JOIN users p ON p.id = a.patient_id
+      WHERE a.doctor_id = ? AND a.status IN ('pending','approved')
+      ORDER BY a.slot_start ASC
+      LIMIT 20
+    ");
+    $pendingAppts->execute([$doctorId]);
+    foreach ($pendingAppts->fetchAll(PDO::FETCH_ASSOC) as $row) {
+      $items[] = [
+        'type' => 'appointment',
+        'id' => (int)$row['appointment_id'],
+        'status' => $row['status'],
+        'slot_start' => $row['slot_start'],
+        'slot_end' => $row['slot_end'],
+        'service_code' => $row['service_code'],
+        'label' => ucfirst($row['type']) . ' visit for ' . ($row['patient_name'] ?? 'patient'),
+        'patient_name' => $row['patient_name'] ?? null,
+        'visit_type' => $row['type'],
+      ];
+    }
+
+    $msgStmt = $pdo->prepare("SELECT id, sender_id, body, created_at FROM messages WHERE receiver_id = ? AND is_read = 0 ORDER BY created_at DESC LIMIT 20");
+    $msgStmt->execute([$userId]);
+    foreach ($msgStmt->fetchAll(PDO::FETCH_ASSOC) as $msg) {
+      $items[] = [
+        'type' => 'message',
+        'id' => (int)$msg['id'],
+        'status' => 'unread',
+        'label' => 'New message',
+        'created_at' => $msg['created_at'],
+        'preview' => mb_substr($msg['body'], 0, 120),
+      ];
+    }
+
+    return [
+      'total' => count($items),
+      'items' => $items,
+    ];
   }
 
   private function availabilitySnapshot(PDO $pdo, string $slotStartRaw){

@@ -40,6 +40,9 @@ export default function DoctorPortal() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState("schedule");
+  const [notifications, setNotifications] = useState({ total: 0, items: [] });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [schedule, setSchedule] = useState([]);
   const [stats, setStats] = useState({
     today_confirmed: 0,
@@ -68,6 +71,20 @@ export default function DoctorPortal() {
       }
     };
     fetchSchedule();
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await http.get("/doctor/notifications");
+        if (cancelled) return;
+        setNotifications({
+          total: data?.total ?? 0,
+          items: Array.isArray(data?.items) ? data.items : [],
+        });
+      } catch {
+        if (cancelled) return;
+        setNotifications({ total: 0, items: [] });
+      }
+    };
+    fetchNotifications();
     return () => {
       cancelled = true;
     };
@@ -121,7 +138,11 @@ export default function DoctorPortal() {
                 <div className="text-center text-muted py-4">No upcoming appointments assigned.</div>
               ) : (
                 <div className="list-group list-group-flush">
-                  {schedule.map((session) => (
+                  {schedule
+                    .filter((session) =>
+                      (session.patient_name || "").toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((session) => (
                     <div className="list-group-item d-flex justify-content-between align-items-center" key={session.id}>
                       <div>
                         <div className="fw-semibold">{session.patient_name || "Patient"}</div>
@@ -225,6 +246,69 @@ export default function DoctorPortal() {
         { key: "reports", icon: "bi-bar-chart-line", label: "Reports" },
       ]}
       onMenuSelect={setActivePanel}
+      headerActions={
+        <div className="position-relative d-flex align-items-center gap-2">
+          <input
+            type="search"
+            className="form-control form-control-sm"
+            placeholder="Search patient…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ minWidth: "180px" }}
+          />
+          <button
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+            type="button"
+            onClick={() => setShowNotifications((prev) => !prev)}
+          >
+            <i className="bi bi-bell"></i>
+            Notifications
+            {notifications.total > 0 && (
+              <span className="badge text-bg-danger rounded-pill">{notifications.total}</span>
+            )}
+          </button>
+          {showNotifications && (
+            <div className="card shadow position-absolute end-0 mt-2" style={{ minWidth: "260px", zIndex: 5 }}>
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <span>Notifications</span>
+                <button className="btn-close btn-close-sm" onClick={() => setShowNotifications(false)}></button>
+              </div>
+              <div className="list-group list-group-flush" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                {notifications.items.length === 0 ? (
+                  <div className="list-group-item text-muted small">No new notifications.</div>
+                ) : (
+                  notifications.items.map((item, idx) => (
+                    <button
+                      key={`${item.type}-${item.id}-${idx}`}
+                      className="list-group-item list-group-item-action small text-start"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setNotifications((prev) => {
+                          const nextItems = prev.items.filter(
+                            (n, i) => !(n.id === item.id && n.type === item.type && i === idx)
+                          );
+                          return { total: nextItems.length, items: nextItems };
+                        });
+                        if (item.type === "appointment") {
+                          navigate(`/doctor/appointments/${item.id}`);
+                        } else {
+                          setActivePanel("messages");
+                        }
+                      }}
+                    >
+                      <div className="fw-semibold text-capitalize">{item.type}</div>
+                      <div className="text-muted">
+                        {item.patient_name ? `${item.patient_name} • ` : ""}
+                        {item.label || (item.type === "appointment" ? "Appointment update" : "New message")}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      }
     >
       {renderActivePanel()}
     </PortalLayout>

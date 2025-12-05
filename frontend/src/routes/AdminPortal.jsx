@@ -94,6 +94,13 @@ export default function AdminPortal() {
   const [facilitySubmitting, setFacilitySubmitting] = useState(false);
   const [titleForm, setTitleForm] = useState({ name: "", category: "" });
   const [titleSubmitting, setTitleSubmitting] = useState(false);
+  const [agriForm, setAgriForm] = useState({ title: "", description: "", is_published: false });
+  const [agriImage, setAgriImage] = useState(null);
+  const [agriSubmitting, setAgriSubmitting] = useState(false);
+  const [agriPosts, setAgriPosts] = useState([]);
+  const [agriLoading, setAgriLoading] = useState(false);
+  const [agriAction, setAgriAction] = useState(null);
+  const [agriBusyId, setAgriBusyId] = useState(null);
   const defaultStaffForm = {
     name: "",
     staff_title_id: "",
@@ -260,6 +267,25 @@ const statCards = useMemo(
     }
   }, []);
 
+  const loadAgriPosts = useCallback(async () => {
+    setAgriLoading(true);
+    setAgriAction(null);
+    try {
+      const { data } = await http.get("/admin/agri");
+      const normalized = Array.isArray(data)
+        ? data.map((row) => ({ ...row, is_published: row.is_published === true || row.is_published === 1 }))
+        : [];
+      setAgriPosts(normalized);
+    } catch (error) {
+      setAgriAction({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to load agri content.",
+      });
+    } finally {
+      setAgriLoading(false);
+    }
+  }, []);
+
   const loadStaff = useCallback(
     async (page = 1) => {
       if (page < 1) page = 1;
@@ -347,8 +373,9 @@ useEffect(() => {
   if (activePanel === "system") {
     loadGeoData();
     loadStaffTitles();
+    loadAgriPosts();
   }
-}, [activePanel, loadGeoData, loadStaffTitles]);
+}, [activePanel, loadGeoData, loadStaffTitles, loadAgriPosts]);
 
   const updateHeroDraft = (id, field, value) => {
     setHeroAssets((prev) => prev.map((asset) => (asset.id === id ? { ...asset, [field]: value } : asset)));
@@ -644,7 +671,7 @@ useEffect(() => {
     }
   };
 
-const submitFacility = async (e) => {
+  const submitFacility = async (e) => {
     e.preventDefault();
     if (!facilityForm.province_id || !facilityForm.district_id || !facilityForm.name.trim()) {
       setGeoFeedback({ type: "danger", message: "Fill all required facility fields." });
@@ -682,6 +709,80 @@ const submitFacility = async (e) => {
       });
     } finally {
       setFacilitySubmitting(false);
+    }
+  };
+
+  const submitAgri = async (e) => {
+    e.preventDefault();
+    if (!agriForm.title.trim()) {
+      setAgriAction({ type: "danger", message: "Title is required." });
+      return;
+    }
+    setAgriSubmitting(true);
+    setAgriAction(null);
+    const formData = new FormData();
+    formData.append("title", agriForm.title.trim());
+    formData.append("description", agriForm.description.trim());
+    formData.append("is_published", agriForm.is_published ? "1" : "0");
+    if (agriImage) {
+      formData.append("image", agriImage);
+    }
+    try {
+      await http.post("/admin/agri", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      setAgriAction({ type: "success", message: "Agri content saved." });
+      setAgriForm({ title: "", description: "", is_published: false });
+      setAgriImage(null);
+      await loadAgriPosts();
+    } catch (error) {
+      setAgriAction({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to save agri content.",
+      });
+    } finally {
+      setAgriSubmitting(false);
+    }
+  };
+
+  const persistAgriUpdate = async (post) => {
+    setAgriBusyId(post.id);
+    setAgriAction({ type: "info", message: "Saving agri content…" });
+    const formData = new FormData();
+    formData.append("id", post.id);
+    formData.append("title", post.title ?? "");
+    formData.append("description", post.description ?? "");
+    formData.append("is_published", post.is_published ? "1" : "0");
+    if (post._new_image) {
+      formData.append("image", post._new_image);
+    }
+    try {
+      await http.post("/admin/agri/update", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      setAgriAction({ type: "success", message: "Agri content updated." });
+      await loadAgriPosts();
+    } catch (error) {
+      setAgriAction({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to update agri content.",
+      });
+    } finally {
+      setAgriBusyId(null);
+    }
+  };
+
+  const handleAgriDelete = async (id) => {
+    if (!window.confirm("Delete this agri post?")) return;
+    setAgriBusyId(id);
+    setAgriAction({ type: "info", message: "Removing agri post…" });
+    try {
+      await http.post("/admin/agri/delete", { id });
+      setAgriAction({ type: "success", message: "Agri post deleted." });
+      await loadAgriPosts();
+    } catch (error) {
+      setAgriAction({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to delete agri post.",
+      });
+    } finally {
+      setAgriBusyId(null);
     }
   };
 
@@ -1620,6 +1721,183 @@ const submitFacility = async (e) => {
             <button className="btn btn-outline-primary" onClick={() => setShowFacilityModal(true)}>
               <i className="bi bi-hospital me-2"></i>Add facility
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card portal-card mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div className="portal-section-title mb-1">Agri content</div>
+              <small className="text-muted">Manage specialized agriculture posts for the landing page.</small>
+            </div>
+            <button className="btn btn-outline-secondary btn-sm" onClick={loadAgriPosts} disabled={agriLoading}>
+              <i className="bi bi-arrow-repeat me-1"></i>Refresh
+            </button>
+          </div>
+          {agriAction && (
+            <div className={`alert alert-${agriAction.type}`} role="alert">
+              {agriAction.message}
+            </div>
+          )}
+          <div className="row g-3">
+            <div className="col-lg-4">
+              <form onSubmit={submitAgri}>
+                <div className="mb-3">
+                  <label className="form-label">Title</label>
+                  <input
+                    className="form-control"
+                    value={agriForm.title}
+                    onChange={(e) => setAgriForm({ ...agriForm, title: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Description</label>
+                  <textarea
+                    className="form-control"
+                    rows="4"
+                    value={agriForm.description}
+                    onChange={(e) => setAgriForm({ ...agriForm, description: e.target.value })}
+                  ></textarea>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Image</label>
+                  <input
+                    type="file"
+                    className="form-control"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => setAgriImage(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <div className="form-check form-switch mb-3">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="agri-publish"
+                    checked={agriForm.is_published}
+                    onChange={(e) => setAgriForm({ ...agriForm, is_published: e.target.checked })}
+                  />
+                  <label className="form-check-label" htmlFor="agri-publish">
+                    Publish immediately
+                  </label>
+                </div>
+                <button className="btn btn-primary w-100" type="submit" disabled={agriSubmitting}>
+                  {agriSubmitting ? "Saving…" : "Save post"}
+                </button>
+              </form>
+            </div>
+            <div className="col-lg-8">
+              <div className="table-responsive">
+                <table className="table portal-table align-middle">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Description</th>
+                      <th>Image</th>
+                      <th>Status</th>
+                      <th style={{ width: "180px" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agriLoading ? (
+                      <tr>
+                        <td colSpan="5" className="text-center py-4">
+                          <div className="spinner-border text-primary" role="status"></div>
+                        </td>
+                      </tr>
+                    ) : agriPosts.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="text-center text-muted py-3">
+                          No agri posts yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      agriPosts.map((post) => (
+                        <tr key={post.id}>
+                          <td style={{ minWidth: "200px" }}>
+                            <input
+                              className="form-control form-control-sm"
+                              value={post.title || ""}
+                              onChange={(e) =>
+                                setAgriPosts((prev) =>
+                                  prev.map((p) => (p.id === post.id ? { ...p, title: e.target.value } : p))
+                                )
+                              }
+                            />
+                          </td>
+                          <td style={{ minWidth: "220px" }}>
+                            <textarea
+                              className="form-control form-control-sm"
+                              rows="2"
+                              value={post.description || ""}
+                              onChange={(e) =>
+                                setAgriPosts((prev) =>
+                                  prev.map((p) => (p.id === post.id ? { ...p, description: e.target.value } : p))
+                                )
+                              }
+                            ></textarea>
+                          </td>
+                          <td style={{ width: "140px" }}>
+                            {post.image_path ? (
+                              <img src={post.image_path} alt={post.title} className="img-fluid rounded" />
+                            ) : (
+                              <span className="text-muted small">None</span>
+                            )}
+                            <input
+                              type="file"
+                              className="form-control form-control-sm mt-2"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] || null;
+                                setAgriPosts((prev) =>
+                                  prev.map((p) => (p.id === post.id ? { ...p, _new_image: file } : p))
+                                );
+                              }}
+                            />
+                          </td>
+                          <td style={{ width: "140px" }}>
+                            <select
+                              className="form-select form-select-sm"
+                              value={post.is_published ? "1" : "0"}
+                              onChange={(e) =>
+                                setAgriPosts((prev) =>
+                                  prev.map((p) =>
+                                    p.id === post.id ? { ...p, is_published: e.target.value === "1" } : p
+                                  )
+                                )
+                              }
+                            >
+                              <option value="1">Published</option>
+                              <option value="0">Draft</option>
+                            </select>
+                          </td>
+                          <td>
+                            <div className="btn-group btn-group-sm">
+                              <button
+                                className="btn btn-outline-primary"
+                                onClick={() => persistAgriUpdate(post)}
+                                disabled={agriBusyId === post.id}
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="btn btn-outline-danger"
+                                onClick={() => handleAgriDelete(post.id)}
+                                disabled={agriBusyId === post.id}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>

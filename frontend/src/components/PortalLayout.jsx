@@ -15,6 +15,7 @@ export default function PortalLayout({
   menuItems = defaultMenu,
   onLogout,
   onMenuSelect,
+  headerActions,
   children,
 }) {
   const { user } = useAuth();
@@ -102,10 +103,14 @@ export default function PortalLayout({
             {subtitle && <small>{subtitle}</small>}
           </div>
           <div className="d-flex align-items-center gap-3">
-            <button className="btn btn-outline-secondary btn-sm">
-              <i className="bi bi-bell me-1"></i>
-              Notifications
-            </button>
+            {headerActions ? (
+              headerActions
+            ) : (
+              <button className="btn btn-outline-secondary btn-sm">
+                <i className="bi bi-bell me-1"></i>
+                Notifications
+              </button>
+            )}
             <div className="user-pill">
               <i className="bi bi-person-circle fs-4"></i>
               <span>{user?.full_name}</span>

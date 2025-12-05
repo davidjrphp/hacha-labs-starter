@@ -9,6 +9,7 @@ const STATUS_BADGE = {
   approved: "success",
   declined: "danger",
   completed: "secondary",
+  overdue: "danger",
 };
 
 const TYPE_LABELS = {
@@ -50,13 +51,6 @@ const Modal = ({ show, title, onClose, children }) => {
   );
 };
 
-const buildAttachmentUrl = (path) => {
-  if (!path) return null;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const base = http.defaults.baseURL?.replace(/\/api\/?$/, "") || "";
-  return base + path;
-};
-
 export default function DoctorSchedule() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -65,6 +59,9 @@ export default function DoctorSchedule() {
   const [error, setError] = useState(null);
   const [actionState, setActionState] = useState({ id: null, action: null });
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [notifications, setNotifications] = useState({ total: 0, items: [] });
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const loadAppointments = useCallback(async () => {
     setLoading(true);
@@ -82,6 +79,18 @@ export default function DoctorSchedule() {
 
   useEffect(() => {
     loadAppointments();
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await http.get("/doctor/notifications");
+        setNotifications({
+          total: data?.total ?? 0,
+          items: Array.isArray(data?.items) ? data.items : [],
+        });
+      } catch {
+        setNotifications({ total: 0, items: [] });
+      }
+    };
+    fetchNotifications();
   }, [loadAppointments]);
 
   const handleRespond = async (appointment, action) => {
@@ -108,12 +117,16 @@ export default function DoctorSchedule() {
     }
   };
 
-  const tableRows = useMemo(() => appointments, [appointments]);
+  const tableRows = useMemo(() => {
+    if (!searchTerm.trim()) return appointments;
+    const term = searchTerm.toLowerCase();
+    return appointments.filter((appt) => (appt.patient_name || "").toLowerCase().includes(term));
+  }, [appointments, searchTerm]);
 
   return (
     <PortalLayout
       title="Scheduling & Appointments"
-      subtitle="Review every appointment assigned to you, approve, decline, or review documents."
+      subtitle="Review every appointment assigned to you, approve/decline."
       onLogout={async () => {
         await logout();
         navigate("/login", { replace: true });
@@ -124,11 +137,70 @@ export default function DoctorSchedule() {
         { key: "messages", icon: "bi-chat-dots", label: "Messages" },
         { key: "reports", icon: "bi-bar-chart-line", label: "Reports" },
       ]}
+      headerActions={
+        <div className="d-flex align-items-center gap-2 position-relative">
+          <input
+            type="search"
+            className="form-control form-control-sm"
+            placeholder="Search patient…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ minWidth: "180px" }}
+          />
+          <button
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+            type="button"
+            onClick={() => setShowNotifications((prev) => !prev)}
+          >
+            <i className="bi bi-bell"></i>
+            Notifications
+            {notifications.total > 0 && (
+              <span className="badge text-bg-danger rounded-pill">{notifications.total}</span>
+            )}
+          </button>
+          {showNotifications && (
+            <div className="card shadow position-absolute end-0 mt-2" style={{ minWidth: "260px", zIndex: 5, top: "100%" }}>
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <span>Notifications</span>
+                <button className="btn-close btn-close-sm" onClick={() => setShowNotifications(false)}></button>
+              </div>
+              <div className="list-group list-group-flush" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                {notifications.items.length === 0 ? (
+                  <div className="list-group-item text-muted small">No new notifications.</div>
+                ) : (
+                  notifications.items.map((item, idx) => (
+                    <button
+                      key={`${item.type}-${item.id}-${idx}`}
+                      className="list-group-item list-group-item-action small text-start"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setNotifications((prev) => {
+                          const nextItems = prev.items.filter(
+                            (n, i) => !(n.id === item.id && n.type === item.type && i === idx)
+                          );
+                          return { total: nextItems.length, items: nextItems };
+                        });
+                        navigate(`/doctor/appointments/${item.id}`);
+                      }}
+                    >
+                      <div className="fw-semibold">{item.patient_name || "Patient"} </div>
+                      <div className="text-muted">
+                        {(TYPE_LABELS[item.visit_type] || item.visit_type || "Visit") +
+                          (item.slot_start ? ` • ${formatDateTime(item.slot_start)}` : "")}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      }
     >
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
           <div className="portal-section-title mb-1">All appointments</div>
-          <p className="text-muted mb-0">Use the controls below to act on referrals and visits.</p>
+         
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate("/doctor")}>
@@ -183,9 +255,15 @@ export default function DoctorSchedule() {
                       <td>{SERVICE_LABELS[appt.service_code] || appt.service_code || "—"}</td>
                       <td>{formatDateTime(appt.slot_start)}</td>
                       <td>
-                        <span className={`badge text-bg-${STATUS_BADGE[appt.status] || "light"}`}>
-                          {appt.status}
-                        </span>
+                        <div className="d-flex flex-column gap-1">
+                          {appt.is_overdue && appt.status !== "completed" ? (
+                            <span className="badge text-bg-danger">Overdue</span>
+                          ) : (
+                            <span className={`badge text-bg-${STATUS_BADGE[appt.status] || "light"}`}>
+                              {appt.status}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div className="btn-group btn-group-sm w-100">
@@ -198,6 +276,13 @@ export default function DoctorSchedule() {
                             onClick={() => handleRespond(appt, "approve")}
                           >
                             {actionState.id === appt.id && actionState.action === "approve" ? "Approving…" : "Approve"}
+                          </button>
+                          <button
+                            className="btn btn-outline-secondary"
+                            disabled={actionState.id === appt.id || appt.status === "completed"}
+                            onClick={() => handleRespond(appt, "close")}
+                          >
+                            {actionState.id === appt.id && actionState.action === "close" ? "Closing…" : "Close"}
                           </button>
                           <button
                             className="btn btn-outline-danger"
@@ -261,7 +346,7 @@ export default function DoctorSchedule() {
             {selectedAppointment.referral_file && (
               <div className="mb-2">
                 <strong>Attachment:</strong>{" "}
-                <a href={buildAttachmentUrl(selectedAppointment.referral_file)} target="_blank" rel="noreferrer">
+                <a href={selectedAppointment.referral_file} target="_blank" rel="noreferrer">
                   View document
                 </a>
               </div>
