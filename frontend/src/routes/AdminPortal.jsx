@@ -147,7 +147,7 @@ const statCards = useMemo(
       { key: "approved", label: "Approved appointments", value: statsData.approved_appointments, icon: "bi-patch-check", color: COLORS[1] },
       { key: "rejected", label: "Rejected appointments", value: statsData.rejected_appointments, icon: "bi-x-circle", color: COLORS[3] },
       { key: "closed", label: "Closed appointments", value: statsData.closed_appointments, icon: "bi-archive", color: COLORS[2] },
-      { key: "staff", label: "Total staff", value: statsData.total_staff, icon: "bi-people", color: COLORS[4] },
+      // { key: "staff", label: "Total staff", value: statsData.total_staff, icon: "bi-people", color: COLORS[4] },
     ],
     [statsData]
   );

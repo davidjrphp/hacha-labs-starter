@@ -112,8 +112,8 @@ class AppointmentController {
   public function mine(){
     $userId = $_SESSION['uid'] ?? null;
     if(!$userId){ http_response_code(401); return ['message'=>'auth'];}
-    $sql = "SELECT a.id,a.type,a.status,a.service_code,a.slot_start,a.slot_end,a.created_at,
-                   u.full_name AS doctor_name,u.email AS doctor_email,
+    $sql = "SELECT a.id,a.type,a.status,a.status_reason,a.service_code,a.slot_start,a.slot_end,a.created_at,
+                   u.id AS doctor_user_id,u.full_name AS doctor_name,u.email AS doctor_email,
                    hf.name AS facility_name, fp.provider_name AS provider_name
             FROM appointments a
             LEFT JOIN doctors d ON d.id=a.doctor_id
@@ -263,6 +263,7 @@ class AppointmentController {
       SELECT a.id,
              a.type,
              a.status,
+             a.status_reason,
              a.slot_start,
              a.slot_end,
              a.service_code,
@@ -461,6 +462,102 @@ class AppointmentController {
     ];
   }
 
+  public function cancelByPatient(){
+    $patientId = $this->requirePatient();
+    $appointmentId = (int)($_POST['appointment_id'] ?? 0);
+    $reason = trim($_POST['reason'] ?? '');
+    if($appointmentId <= 0){
+      http_response_code(422);
+      return ['message' => 'Invalid appointment id'];
+    }
+    $pdo = DB::conn();
+    $stmt = $pdo->prepare("SELECT id,status FROM appointments WHERE id=? AND patient_id=? LIMIT 1");
+    $stmt->execute([$appointmentId, $patientId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if(!$row){
+      http_response_code(404);
+      return ['message'=>'Appointment not found'];
+    }
+    if(in_array($row['status'], ['approved','completed'], true)){
+      http_response_code(422);
+      return ['message'=>'Cannot cancel an approved or completed appointment'];
+    }
+    $update = $pdo->prepare("UPDATE appointments SET status='declined', status_reason=? WHERE id=?");
+    $update->execute([$reason ?: 'Cancelled by patient', $appointmentId]);
+    return ['message'=>'Appointment cancelled'];
+  }
+
+  public function rescheduleByPatient(){
+    $patientId = $this->requirePatient();
+    $appointmentId = (int)($_POST['appointment_id'] ?? 0);
+    $slotStart = trim($_POST['slot_start'] ?? '');
+    if($appointmentId <= 0 || $slotStart === ''){
+      http_response_code(422);
+      return ['message' => 'Appointment id and new time are required'];
+    }
+    try {
+      $slot = new \DateTimeImmutable($slotStart);
+    } catch (\Exception $e) {
+      http_response_code(422);
+      return ['message' => 'Invalid desired date/time'];
+    }
+    $slotEnd = $slot->modify('+1 hour');
+    $slotStartFormatted = $slot->format('Y-m-d H:i:s');
+    $slotEndFormatted = $slotEnd->format('Y-m-d H:i:s');
+
+    $pdo = DB::conn();
+    $stmt = $pdo->prepare("SELECT id,status FROM appointments WHERE id=? AND patient_id=? LIMIT 1");
+    $stmt->execute([$appointmentId, $patientId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if(!$row){
+      http_response_code(404);
+      return ['message'=>'Appointment not found'];
+    }
+    if($row['status'] === 'completed'){
+      http_response_code(422);
+      return ['message'=>'Cannot reschedule a completed appointment'];
+    }
+    $update = $pdo->prepare("UPDATE appointments SET slot_start=?, slot_end=?, status='pending', status_reason=? WHERE id=?");
+    $update->execute([$slotStartFormatted, $slotEndFormatted, 'Reschedule requested', $appointmentId]);
+    return ['message'=>'Reschedule submitted'];
+  }
+
+  public function doctorPatients(){
+    $userId = $this->requireDoctor();
+    $pdo = DB::conn();
+    $doctorId = $this->resolveDoctorId($pdo, $userId, false);
+    if(!$doctorId){
+      return ['data'=>[], 'meta'=>['total'=>0]];
+    }
+    $limit = (int)($_GET['limit'] ?? 100);
+    if ($limit < 1) $limit = 1;
+    if ($limit > 500) $limit = 500;
+    $stmt = $pdo->prepare("
+      SELECT p.id AS patient_id,
+             p.full_name,
+             p.email,
+             p.phone,
+             MAX(a.slot_start) AS last_visit,
+             COUNT(*) AS total_appointments
+      FROM appointments a
+      JOIN users p ON p.id = a.patient_id
+      WHERE a.doctor_id = :doctor_id
+      GROUP BY p.id, p.full_name, p.email, p.phone
+      ORDER BY last_visit DESC
+      LIMIT :limit
+    ");
+    $stmt->bindValue(':doctor_id', $doctorId, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return [
+      'data' => $rows,
+      'meta' => [
+        'total' => count($rows),
+      ],
+    ];
+  }
+
   private function availabilitySnapshot(PDO $pdo, string $slotStartRaw){
     try {
       $slot = new DateTimeImmutable($slotStartRaw);
@@ -582,6 +679,16 @@ class AppointmentController {
       echo json_encode(['message' => 'Forbidden']);
       exit;
     }
+  }
+
+  private function requirePatient(): int {
+    $userId = (int)($_SESSION['uid'] ?? 0);
+    if ($userId <= 0) {
+      http_response_code(401);
+      echo json_encode(['message' => 'auth']);
+      exit;
+    }
+    return $userId;
   }
 
   private function requireDoctor(): int {

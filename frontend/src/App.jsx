@@ -16,10 +16,14 @@ import AdminPortal from "./routes/AdminPortal.jsx";
 import DoctorPortal from "./routes/DoctorPortal.jsx";
 import DoctorSchedule from "./routes/DoctorSchedule.jsx";
 import DoctorAppointmentDetail from "./routes/DoctorAppointmentDetail.jsx";
+import DoctorPatients from "./routes/DoctorPatients.jsx";
+import DoctorMessages from "./routes/DoctorMessages.jsx";
+import DoctorReports from "./routes/DoctorReports.jsx";
 import PublicShell from "./components/PublicShell.jsx";
 import NewsDetail from "./routes/NewsDetail.jsx";
 import SpecializedAgri from "./routes/SpecializedAgri.jsx";
 import SpecializedOther from "./routes/SpecializedOther.jsx";
+import SearchResults from "./routes/SearchResults.jsx";
 
 export default function App(){
   const [theme,setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -36,6 +40,7 @@ export default function App(){
             <Route path="/research" element={<Research/>}/>
             <Route path="/research/:slug" element={<ResearchItem/>}/>
             <Route path="/news/:id" element={<NewsDetail/>}/>
+            <Route path="/news" element={<SearchResults/>}/>
             <Route path="/login" element={<Login/>}/>
             <Route path="/register" element={<Register/>}/>
             <Route path="/specialized/agri" element={<SpecializedAgri/>}/>
@@ -46,6 +51,9 @@ export default function App(){
           <Route path="/admin" element={<Protected roles={['admin']}><AdminPortal/></Protected>}/>
           <Route path="/doctor" element={<Protected roles={['doctor']}><DoctorPortal/></Protected>}/>
           <Route path="/doctor/schedule" element={<Protected roles={['doctor']}><DoctorSchedule/></Protected>}/>
+          <Route path="/doctor/patients" element={<Protected roles={['doctor']}><DoctorPatients/></Protected>}/>
+          <Route path="/doctor/messages" element={<Protected roles={['doctor']}><DoctorMessages/></Protected>}/>
+          <Route path="/doctor/reports" element={<Protected roles={['doctor']}><DoctorReports/></Protected>}/>
           <Route path="/doctor/appointments/:id" element={<Protected roles={['doctor']}><DoctorAppointmentDetail/></Protected>}/>
         </Routes>
       </BrowserRouter>

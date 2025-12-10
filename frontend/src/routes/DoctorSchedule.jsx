@@ -10,6 +10,8 @@ const STATUS_BADGE = {
   declined: "danger",
   completed: "secondary",
   overdue: "danger",
+  rescheduled: "info",
+  cancelled: "danger",
 };
 
 const TYPE_LABELS = {
@@ -34,6 +36,17 @@ const formatDateTime = (value) => {
   } catch {
     return value;
   }
+};
+
+const normalizeStatus = (appointment) => {
+  const reason = (appointment.status_reason || "").toLowerCase();
+  if (appointment.status === "pending" && reason.includes("reschedule")) {
+    return { label: "rescheduled", variant: "rescheduled" };
+  }
+  if (appointment.status === "declined" && reason.includes("cancel")) {
+    return { label: "cancelled", variant: "cancelled" };
+  }
+  return { label: appointment.status, variant: appointment.status };
 };
 
 const Modal = ({ show, title, onClose, children }) => {
@@ -123,6 +136,13 @@ export default function DoctorSchedule() {
     return appointments.filter((appt) => (appt.patient_name || "").toLowerCase().includes(term));
   }, [appointments, searchTerm]);
 
+  const menuItems = [
+    { key: "schedule", icon: "bi-calendar-week", label: "Schedule" },
+    { key: "patients", icon: "bi-person-vcard", label: "Patients" },
+    { key: "messages", icon: "bi-chat-dots", label: "Messages" },
+    { key: "reports", icon: "bi-bar-chart-line", label: "Reports" },
+  ];
+
   return (
     <PortalLayout
       title="Scheduling & Appointments"
@@ -131,12 +151,13 @@ export default function DoctorSchedule() {
         await logout();
         navigate("/login", { replace: true });
       }}
-      menuItems={[
-        { key: "schedule", icon: "bi-calendar-week", label: "Schedule" },
-        { key: "patients", icon: "bi-person-vcard", label: "Patients" },
-        { key: "messages", icon: "bi-chat-dots", label: "Messages" },
-        { key: "reports", icon: "bi-bar-chart-line", label: "Reports" },
-      ]}
+      menuItems={menuItems}
+      onMenuSelect={(key) => {
+        if (key === "schedule") navigate("/doctor/schedule");
+        if (key === "patients") navigate("/doctor/patients");
+        if (key === "messages") navigate("/doctor/messages");
+        if (key === "reports") navigate("/doctor/reports");
+      }}
       headerActions={
         <div className="d-flex align-items-center gap-2 position-relative">
           <input
@@ -255,15 +276,18 @@ export default function DoctorSchedule() {
                       <td>{SERVICE_LABELS[appt.service_code] || appt.service_code || "—"}</td>
                       <td>{formatDateTime(appt.slot_start)}</td>
                       <td>
-                        <div className="d-flex flex-column gap-1">
-                          {appt.is_overdue && appt.status !== "completed" ? (
-                            <span className="badge text-bg-danger">Overdue</span>
-                          ) : (
-                            <span className={`badge text-bg-${STATUS_BADGE[appt.status] || "light"}`}>
-                              {appt.status}
-                            </span>
-                          )}
-                        </div>
+                        {(() => {
+                          const { label, variant } = normalizeStatus(appt);
+                          const showOverdue = appt.is_overdue && appt.status !== "completed";
+                          return (
+                            <div className="d-flex flex-wrap gap-1">
+                              <span className={`badge text-bg-${STATUS_BADGE[variant] || "light"}`}>
+                                {label}
+                              </span>
+                              {showOverdue && <span className="badge text-bg-danger">overdue</span>}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td>
                         <div className="btn-group btn-group-sm w-100">
@@ -323,9 +347,16 @@ export default function DoctorSchedule() {
             </div>
             <div className="mb-2">
               <strong>Status:</strong>{" "}
-              <span className={`badge text-bg-${STATUS_BADGE[selectedAppointment.status] || "light"}`}>
-                {selectedAppointment.status}
-              </span>
+              {(() => {
+                const { label, variant } = normalizeStatus(selectedAppointment);
+                const showOverdue = selectedAppointment.is_overdue && selectedAppointment.status !== "completed";
+                return (
+                  <>
+                    <span className={`badge text-bg-${STATUS_BADGE[variant] || "light"}`}>{label}</span>
+                    {showOverdue && <span className="badge text-bg-danger ms-1">overdue</span>}
+                  </>
+                );
+              })()}
             </div>
             {selectedAppointment.referring_facility_id && (
               <div className="mb-2">

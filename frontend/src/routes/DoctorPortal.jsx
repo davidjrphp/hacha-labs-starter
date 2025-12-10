@@ -9,6 +9,8 @@ const STATUS_BADGE = {
   approved: "success",
   declined: "danger",
   completed: "secondary",
+  rescheduled: "info",
+  cancelled: "danger",
 };
 
 const TYPE_LABELS = {
@@ -26,15 +28,16 @@ const formatDateTime = (value) => {
   }
 };
 
-const PlaceholderCard = ({ title, description, action }) => (
-  <div className="card portal-card">
-    <div className="card-body text-center py-5">
-      <h5 className="mb-2">{title}</h5>
-      <p className="text-muted mb-3">{description}</p>
-      {action}
-    </div>
-  </div>
-);
+const normalizeStatus = (appointment) => {
+  const reason = (appointment.status_reason || "").toLowerCase();
+  if (appointment.status === "pending" && reason.includes("reschedule")) {
+    return { label: "rescheduled", variant: "rescheduled" };
+  }
+  if (appointment.status === "declined" && reason.includes("cancel")) {
+    return { label: "cancelled", variant: "cancelled" };
+  }
+  return { label: appointment.status, variant: appointment.status };
+};
 
 export default function DoctorPortal() {
   const { logout } = useAuth();
@@ -44,6 +47,11 @@ export default function DoctorPortal() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [schedule, setSchedule] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientsError, setPatientsError] = useState(null);
+  const [patientPage, setPatientPage] = useState(1);
+  const PATIENTS_PER_PAGE = 8;
   const [stats, setStats] = useState({
     today_confirmed: 0,
     pending_referrals: 0,
@@ -85,6 +93,22 @@ export default function DoctorPortal() {
       }
     };
     fetchNotifications();
+    const fetchPatients = async () => {
+      setPatientsLoading(true);
+      setPatientsError(null);
+      try {
+        const { data } = await http.get("/doctor/patients");
+        if (cancelled) return;
+        setPatients(Array.isArray(data?.data) ? data.data : []);
+      } catch (err) {
+        if (cancelled) return;
+        setPatients([]);
+        setPatientsError(err.response?.data?.message || "Unable to load patients.");
+      } finally {
+        if (!cancelled) setPatientsLoading(false);
+      }
+    };
+    fetchPatients();
     return () => {
       cancelled = true;
     };
@@ -153,9 +177,14 @@ export default function DoctorPortal() {
                           <div className="text-muted small">Facility: {session.facility_name}</div>
                         )}
                       </div>
-                      <span className={`badge text-bg-${STATUS_BADGE[session.status] || "light"}`}>
-                        {session.status}
-                      </span>
+                      {(() => {
+                        const { label, variant } = normalizeStatus(session);
+                        return (
+                          <span className={`badge text-bg-${STATUS_BADGE[variant] || "light"}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -175,9 +204,11 @@ export default function DoctorPortal() {
             <div className="card-body">
               <div className="portal-section-title mb-2">Messaging queue</div>
               <p className="text-muted">Respond to patients and referral partners securely.</p>
-              <div className="text-center text-muted py-4">Messaging integration coming soon.</div>
-              <button className="btn btn-success w-100 mt-3" disabled>
-                <i className="bi bi-chat-text me-1"></i>Enter inbox
+              <div className="text-center text-muted py-4">
+                Launch your inbox to chat with patients and referral partners.
+              </div>
+              <button className="btn btn-success w-100 mt-3" onClick={() => navigate("/doctor/messages")}>
+                <i className="bi bi-chat-text me-1"></i>Launch inbox
               </button>
             </div>
           </div>
@@ -186,46 +217,105 @@ export default function DoctorPortal() {
     </>
   );
 
+  const paginatedPatients = useMemo(() => {
+    const filtered = patients.filter((p) =>
+      (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const start = (patientPage - 1) * PATIENTS_PER_PAGE;
+    return {
+      rows: filtered.slice(start, start + PATIENTS_PER_PAGE),
+      totalPages: Math.max(1, Math.ceil(filtered.length / PATIENTS_PER_PAGE)),
+    };
+  }, [patients, searchTerm, patientPage]);
+
   const renderActivePanel = () => {
     switch (activePanel) {
       case "schedule":
         return renderSchedulePanel();
       case "patients":
         return (
-          <PlaceholderCard
-            title="Patient management coming soon"
-            description="Track assignments, histories, and handovers without leaving the hub."
-            action={
-              <button className="btn btn-outline-primary" disabled>
-                Manage patients
-              </button>
-            }
-          />
+          <div className="card portal-card">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <div className="portal-section-title mb-1">Patients</div>
+                  <small className="text-muted">Your Patients/appointments.</small>
+                </div>
+                <div className="d-flex gap-2">
+                  <input
+                    type="search"
+                    className="form-control form-control-sm"
+                    placeholder="Search patients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+              {patientsError && <div className="alert alert-warning">{patientsError}</div>}
+              {patientsLoading ? (
+                <div className="text-center py-4">
+                  <div className="spinner-border text-primary" role="status"></div>
+                  <div className="text-muted mt-2">Loading patients…</div>
+                </div>
+              ) : paginatedPatients.rows.length === 0 ? (
+                <div className="text-center text-muted py-4">No patients found.</div>
+              ) : (
+                <>
+                  <div className="table-responsive">
+                    <table className="table portal-table align-middle">
+                      <thead>
+                        <tr>
+                          <th>Patient</th>
+                          <th>Email</th>
+                          <th>Phone</th>
+                          <th>Last visit</th>
+                          <th>Total appointments</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedPatients.rows.map((p) => (
+                          <tr key={p.patient_id}>
+                            <td>{p.full_name}</td>
+                            <td>{p.email || "—"}</td>
+                            <td>{p.phone || "—"}</td>
+                            <td>{p.last_visit ? new Date(p.last_visit).toLocaleString() : "—"}</td>
+                            <td>{p.total_appointments || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <small className="text-muted">
+                      Page {patientPage} of {paginatedPatients.totalPages}
+                    </small>
+                    <div className="btn-group btn-group-sm">
+                      <button
+                        className="btn btn-outline-secondary"
+                        disabled={patientPage <= 1}
+                        onClick={() => setPatientPage((p) => p - 1)}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        className="btn btn-outline-secondary"
+                        disabled={patientPage >= paginatedPatients.totalPages}
+                        onClick={() => setPatientPage((p) => p + 1)}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         );
       case "messages":
-        return (
-          <PlaceholderCard
-            title="Secure messaging"
-            description="Chat with patients and referral partners in a HIPAA-ready inbox."
-            action={
-              <button className="btn btn-success" disabled>
-                Launch inbox
-              </button>
-            }
-          />
-        );
+        navigate("/doctor/messages");
+        return null;
       case "reports":
-        return (
-          <PlaceholderCard
-            title="Analytics dashboard"
-            description="Productivity, turnaround, and quality metrics will surface here soon."
-            action={
-              <button className="btn btn-outline-secondary" disabled>
-                View reports
-              </button>
-            }
-          />
-        );
+        return null;
       default:
         return renderSchedulePanel();
     }

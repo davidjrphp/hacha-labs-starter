@@ -4,27 +4,35 @@ import PortalLayout from "../components/PortalLayout.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import http from "../api/http.js";
 
-export default function Messages() {
+export default function DoctorMessages() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState([]);
   const [activePeer, setActivePeer] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [body, setBody] = useState("");
+  const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const unreadCount = useMemo(() => contacts.reduce((sum, c) => sum + (c.unread || 0), 0), [contacts]);
+  const [body, setBody] = useState("");
   const bottomRef = useRef(null);
 
-  const loadAppointments = async () => {
+  const menuItems = [
+    { key: "schedule", icon: "bi-calendar-week", label: "Schedule" },
+    { key: "patients", icon: "bi-person-vcard", label: "Patients" },
+    { key: "messages", icon: "bi-chat-dots", label: "Messages", badge: unreadCount || null },
+    { key: "reports", icon: "bi-bar-chart-line", label: "Reports" },
+  ];
+
+  const loadPatients = async () => {
     try {
-      const { data } = await http.get("/appointments/me");
-      const rows = Array.isArray(data) ? data : [];
-      setAppointments(rows);
+      const { data } = await http.get("/doctor/patients");
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      setPatients(rows);
       return rows;
     } catch {
-      setAppointments([]);
+      setPatients([]);
       return [];
     }
   };
@@ -32,18 +40,18 @@ export default function Messages() {
   const loadContacts = async () => {
     try {
       const { data } = await http.get("/messages/contacts");
-      const msgContacts = Array.isArray(data) ? data : [];
-      const appts = appointments.length ? appointments : await loadAppointments();
+      const contactList = Array.isArray(data) ? data : [];
+      // merge in patients so new chat can start even without prior messages
+      const patientRows = patients.length ? patients : await loadPatients();
       const merged = new Map();
-      msgContacts.forEach((c) => merged.set(String(c.user_id), { ...c }));
-      appts.forEach((a) => {
-        const peerId = a.doctor_user_id;
-        if (!peerId) return;
-        const key = String(peerId);
+      contactList.forEach((c) => merged.set(String(c.user_id), { ...c }));
+      patientRows.forEach((p) => {
+        const key = String(p.patient_id);
         if (!merged.has(key)) {
           merged.set(key, {
-            user_id: peerId,
-            name: a.doctor_name || "Specialist",
+            user_id: p.patient_id,
+            name: p.full_name || "Patient",
+            role_id: 0,
             last_message: "",
             last_at: null,
             unread: 0,
@@ -58,7 +66,7 @@ export default function Messages() {
       });
       setContacts(mergedArr);
       return mergedArr;
-    } catch {
+    } catch (err) {
       setContacts([]);
       return [];
     }
@@ -85,7 +93,7 @@ export default function Messages() {
   useEffect(() => {
     let cancel = false;
     const init = async () => {
-      await loadAppointments();
+      await loadPatients();
       const resp = await loadContacts();
       const first = (resp && Array.isArray(resp) && resp[0]) || null;
       if (!cancel && first && !activePeer) {
@@ -146,25 +154,21 @@ export default function Messages() {
     [contacts, activePeer]
   );
 
-  const unreadCount = contacts.reduce((sum, c) => sum + (c.unread || 0), 0);
-
   return (
     <PortalLayout
-      title="Secure Messaging"
-      subtitle="Chat with your assigned care team and referral partners."
-      menuItems={[
-        { key: "messages", icon: "bi-chat-dots", label: "Inbox", badge: unreadCount || null },
-        { key: "attachments", icon: "bi-paperclip", label: "Attachments" },
-      ]}
+      title="Messages"
+      subtitle="Secure chat with patients and referral partners."
       onLogout={async () => {
         await logout();
         navigate("/login", { replace: true });
       }}
-      headerActions={
-        <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate("/appointments")}>
-          <i className="bi bi-arrow-left me-1"></i>Back
-        </button>
-      }
+      menuItems={menuItems}
+      onMenuSelect={(key) => {
+        if (key === "schedule") navigate("/doctor/schedule");
+        if (key === "patients") navigate("/doctor/patients");
+        if (key === "messages") navigate("/doctor/messages");
+        if (key === "reports") navigate("/doctor/reports");
+      }}
     >
       <div className="row g-3">
         <div className="col-md-4">
@@ -175,7 +179,22 @@ export default function Messages() {
                 <i className="bi bi-arrow-repeat"></i>
               </button>
             </div>
-            <div className="list-group list-group-flush" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+            <div className="card-body border-bottom">
+              <label className="form-label small mb-1">Start chat with patient</label>
+              <select
+                className="form-select form-select-sm"
+                value={activePeer || ""}
+                onChange={(e) => setActivePeer(e.target.value)}
+              >
+                <option value="">Select a patient</option>
+                {patients.map((p) => (
+                  <option key={p.patient_id} value={p.patient_id}>
+                    {p.full_name || "Patient"} ({p.patient_id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="list-group list-group-flush" style={{ maxHeight: "65vh", overflowY: "auto" }}>
               {contacts.length === 0 && (
                 <div className="list-group-item text-muted small">No conversations yet.</div>
               )}
@@ -188,7 +207,7 @@ export default function Messages() {
                   onClick={() => setActivePeer(c.user_id)}
                 >
                   <div>
-                    <div className="fw-semibold">{c.name || "Contact"}</div>
+                    <div className="fw-semibold">{c.name}</div>
                     <div className="small text-muted text-truncate" style={{ maxWidth: "200px" }}>
                       {c.last_message || "No messages"}
                     </div>
@@ -204,10 +223,14 @@ export default function Messages() {
             <div className="card-header d-flex justify-content-between align-items-center">
               <div>
                 <div className="fw-semibold">{activeContact?.name || "Select a conversation"}</div>
-                {activeContact && <div className="text-muted small">User #{activeContact.user_id}</div>}
+                {activeContact && (
+                  <div className="text-muted small">
+                    {activeContact.role_id === 2 ? "Specialist" : "Patient"}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="card-body flex-grow-1" style={{ overflowY: "auto", maxHeight: "60vh" }}>
+            <div className="card-body flex-grow-1" style={{ overflowY: "auto", maxHeight: "55vh" }}>
               {loading ? (
                 <div className="text-center py-4">
                   <div className="spinner-border text-primary" role="status"></div>
@@ -239,7 +262,7 @@ export default function Messages() {
               <form className="d-flex gap-2" onSubmit={handleSend}>
                 <input
                   className="form-control"
-                  placeholder={activePeer ? "Type a message..." : "Select a conversation"}
+                  placeholder={activePeer ? "Type a message..." : "Select a contact to start chatting"}
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   disabled={!activePeer}

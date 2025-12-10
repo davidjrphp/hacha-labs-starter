@@ -10,12 +10,21 @@ class NewsController
     {
         $pdo = DB::conn();
         $all = isset($_GET['all']) && $_GET['all'] == '1';
+        $search = trim($_GET['search'] ?? '');
 
-        $sql = "SELECT id,title,cover_path,LEFT(body,220) AS excerpt,created_at FROM news WHERE is_published=1 ORDER BY created_at DESC";
+        $sql = "SELECT id,title,cover_path,LEFT(body,220) AS excerpt,created_at FROM news WHERE is_published=1";
+        $params = [];
+        if ($search !== '') {
+            $sql .= " AND (title LIKE :q OR body LIKE :q)";
+            $params[':q'] = '%' . $search . '%';
+        }
+        $sql .= " ORDER BY created_at DESC";
         if (!$all) {
             $sql .= " LIMIT 6";
         }
-        $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as &$row) {
             $row['cover_path'] = $this->assetUrl($row['cover_path']);
         }

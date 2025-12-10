@@ -24,6 +24,8 @@ const statusVariants = {
   approved: "success",
   declined: "danger",
   completed: "secondary",
+  rescheduled: "info",
+  cancelled: "danger",
 };
 
 const serviceLabelMap = services.reduce((acc, srv) => {
@@ -32,6 +34,29 @@ const serviceLabelMap = services.reduce((acc, srv) => {
 }, {});
 
 const formatAppointmentId = (id) => `APT-${String(id).padStart(5, "0")}`;
+const parseAppointmentId = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const parsed = parseInt(digits, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+const toInputDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
+const normalizeStatusDisplay = (appt) => {
+  const reason = (appt.status_reason || "").toLowerCase();
+  if (appt.status === "pending" && reason.includes("reschedule")) {
+    return { label: "rescheduled", variant: "rescheduled" };
+  }
+  if (appt.status === "declined" && reason.includes("cancel")) {
+    return { label: "cancelled", variant: "cancelled" };
+  }
+  return { label: appt.status, variant: statusVariants[appt.status] ? appt.status : "secondary" };
+};
 
 export default function Appointments() {
   const { logout } = useAuth();
@@ -75,6 +100,26 @@ export default function Appointments() {
 
   const [cancelForm, setCancelForm] = useState({ appointmentId: "", reason: "" });
   const [rescheduleForm, setRescheduleForm] = useState({ appointmentId: "", newDate: "" });
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [editModal, setEditModal] = useState({
+    open: false,
+    appointment: null,
+    mode: "reschedule",
+    reason: "",
+    newDate: "",
+    feedback: null,
+    submitting: false,
+  });
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 8;
+
+  const updateAppointmentInState = (id, updater) => {
+    setAppointments((prev) =>
+      prev.map((appt) => (appt.id === id ? { ...appt, ...updater(appt) } : appt))
+    );
+  };
   const formatDateTimeFriendly = useCallback((value) => {
     if (!value) return "";
     const parsed = new Date(value);
@@ -96,6 +141,15 @@ export default function Appointments() {
     ],
     [summary]
   );
+
+  const paginatedAppointments = useMemo(() => {
+    const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    const end = start + HISTORY_PAGE_SIZE;
+    return {
+      rows: appointments.slice(start, end),
+      totalPages: Math.max(1, Math.ceil(appointments.length / HISTORY_PAGE_SIZE)),
+    };
+  }, [appointments, historyPage]);
 
   useEffect(() => {
     loadSummary();
@@ -335,16 +389,90 @@ export default function Appointments() {
     }
   };
 
-  const submitCancel = (e) => {
+  const submitCancel = async (e) => {
     e.preventDefault();
-    alert(`Appointment ${cancelForm.appointmentId} cancellation submitted (placeholder).`);
-    setCancelForm({ ...cancelForm, reason: "" });
+    setActionFeedback(null);
+    const appointmentId = parseAppointmentId(cancelForm.appointmentId);
+    if (!appointmentId) {
+      setActionFeedback({ type: "danger", message: "Select an appointment to cancel." });
+      return;
+    }
+    setCancelSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("appointment_id", appointmentId);
+      formData.append("reason", cancelForm.reason);
+      await http.post("/appointments/cancel", formData);
+      setActionFeedback({ type: "success", message: "Cancellation submitted." });
+      updateAppointmentInState(appointmentId, () => ({
+        status: "declined",
+        status_reason: cancelForm.reason || "Cancelled by patient",
+      }));
+      setCancelForm({ appointmentId: formatAppointmentId(appointmentId), reason: "" });
+      await Promise.all([loadSummary(), loadAppointments()]);
+    } catch (error) {
+      setActionFeedback({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to cancel appointment.",
+      });
+    } finally {
+      setCancelSubmitting(false);
+    }
   };
 
-  const submitReschedule = (e) => {
+  const submitReschedule = async (e) => {
     e.preventDefault();
-    alert(`Appointment ${rescheduleForm.appointmentId} reschedule requested (placeholder).`);
-    setRescheduleForm({ ...rescheduleForm, newDate: "" });
+    setActionFeedback(null);
+    const appointmentId = parseAppointmentId(rescheduleForm.appointmentId);
+    if (!appointmentId) {
+      setActionFeedback({ type: "danger", message: "Select an appointment to reschedule." });
+      return;
+    }
+    if (!rescheduleForm.newDate) {
+      setActionFeedback({ type: "danger", message: "Choose a new date and time." });
+      return;
+    }
+    setRescheduleSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("appointment_id", appointmentId);
+      formData.append("slot_start", rescheduleForm.newDate);
+      await http.post("/appointments/reschedule", formData);
+      setActionFeedback({ type: "success", message: "Reschedule request sent." });
+      updateAppointmentInState(appointmentId, () => ({
+        status: "pending",
+        status_reason: "Reschedule requested",
+        slot_start: rescheduleForm.newDate,
+      }));
+      setRescheduleForm({ appointmentId: formatAppointmentId(appointmentId), newDate: "" });
+      await Promise.all([loadSummary(), loadAppointments()]);
+    } catch (error) {
+      setActionFeedback({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to reschedule appointment.",
+      });
+    } finally {
+      setRescheduleSubmitting(false);
+    }
+  };
+
+  const handleHistoryEdit = (appt) => {
+    const formattedId = formatAppointmentId(appt.id);
+    setCancelForm((prev) => ({ ...prev, appointmentId: formattedId }));
+    setRescheduleForm((prev) => ({
+      ...prev,
+      appointmentId: formattedId,
+      newDate: toInputDateTime(appt.slot_start),
+    }));
+    setEditModal({
+      open: true,
+      appointment: appt,
+      mode: "reschedule",
+      reason: appt.status_reason || "",
+      newDate: toInputDateTime(appt.slot_start),
+      feedback: null,
+      submitting: false,
+    });
   };
 
   const renderPlaceholder = (title, description, action) => (
@@ -612,6 +740,11 @@ export default function Appointments() {
             <div className="card-body">
               <div className="portal-section-title mb-2">Quick actions</div>
               <p className="text-muted">Cancel or reschedule without calling the clinic.</p>
+              {actionFeedback && (
+                <div className={`alert alert-${actionFeedback.type} py-2`}>
+                  {actionFeedback.message}
+                </div>
+              )}
               <form className="mb-3" onSubmit={submitCancel}>
                 <label className="form-label">Cancel appointment</label>
                 <input
@@ -628,8 +761,8 @@ export default function Appointments() {
                   onChange={(e) => setCancelForm({ ...cancelForm, reason: e.target.value })}
                   required
                 ></textarea>
-                <button className="btn btn-outline-danger w-100" type="submit">
-                  Cancel appointment
+                <button className="btn btn-outline-danger w-100" type="submit" disabled={cancelSubmitting}>
+                  {cancelSubmitting ? "Submitting..." : "Cancel appointment"}
                 </button>
               </form>
               <form onSubmit={submitReschedule}>
@@ -647,8 +780,8 @@ export default function Appointments() {
                   onChange={(e) => setRescheduleForm({ ...rescheduleForm, newDate: e.target.value })}
                   required
                 />
-                <button className="btn btn-outline-primary w-100" type="submit">
-                  Submit reschedule
+                <button className="btn btn-outline-primary w-100" type="submit" disabled={rescheduleSubmitting}>
+                  {rescheduleSubmitting ? "Submitting..." : "Submit reschedule"}
                 </button>
               </form>
             </div>
@@ -656,73 +789,114 @@ export default function Appointments() {
         </div>
       </div>
 
-      <div className="card portal-card mt-4">
-        <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <div>
-              <div className="portal-section-title mb-1">History &amp; status</div>
-              <p className="text-muted mb-0">Keep track of every touchpoint.</p>
-            </div>
-            <button className="btn btn-outline-secondary btn-sm" onClick={loadAppointments} disabled={appointmentsLoading}>
-              <i className="bi bi-arrow-repeat me-1"></i>Refresh
-            </button>
+      {renderHistoryCard()}
+    </>
+  );
+
+  const renderHistoryCard = () => (
+    <div className="card portal-card mt-4">
+      <div className="card-body">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <div className="portal-section-title mb-1">History &amp; status</div>
+            <p className="text-muted mb-0">Keep track of every touchpoint.</p>
           </div>
-          {appointmentsError && <div className="alert alert-warning">{appointmentsError}</div>}
-          <div className="table-responsive">
-            {appointmentsLoading ? (
-              <div className="text-center py-4">
-                <div className="spinner-border text-primary" role="status"></div>
-              </div>
-            ) : (
-              <table className="table portal-table align-middle">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Service</th>
-                    <th>Doctor</th>
-                    <th>Slot</th>
-                    <th>Status</th>
-                    <th>Referral</th>
+          <button className="btn btn-outline-secondary btn-sm" onClick={loadAppointments} disabled={appointmentsLoading}>
+            <i className="bi bi-arrow-repeat me-1"></i>Refresh
+          </button>
+        </div>
+        {appointmentsError && <div className="alert alert-warning">{appointmentsError}</div>}
+        <div className="table-responsive">
+          {appointmentsLoading ? (
+            <div className="text-center py-4">
+              <div className="spinner-border text-primary" role="status"></div>
+            </div>
+          ) : (
+            <table className="table portal-table align-middle">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Service</th>
+                  <th>Doctor</th>
+                  <th>Slot</th>
+                  <th>Status</th>
+                  <th>Referral</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedAppointments.rows.map((appt) => (
+                  <tr key={appt.id}>
+                    <td>{formatAppointmentId(appt.id)}</td>
+                    <td>{serviceLabelMap[appt.service_code] || appt.service_code || "—"}</td>
+                    <td>{appt.doctor_name || "—"}</td>
+                    <td>{appt.slot_start ? new Date(appt.slot_start).toLocaleString() : "—"}</td>
+                    <td>
+                      {(() => {
+                        const { label, variant } = normalizeStatusDisplay(appt);
+                        return (
+                          <span className={`badge text-bg-${statusVariants[variant] || "secondary"}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                      {appt.status_reason && <div className="text-muted small">{appt.status_reason}</div>}
+                    </td>
+                    <td>
+                      {appt.facility_name ? (
+                        <>
+                          <div className="small">{appt.facility_name}</div>
+                          <div className="text-muted small">{appt.provider_name}</div>
+                        </>
+                      ) : (
+                        <span className="text-muted small">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {appt.status !== "approved" && appt.status !== "completed" ? (
+                        <button className="btn btn-sm btn-outline-primary" onClick={() => handleHistoryEdit(appt)}>
+                          Edit
+                        </button>
+                      ) : (
+                        <span className="text-muted small">Locked</span>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {appointments.map((appt) => (
-                    <tr key={appt.id}>
-                      <td>{formatAppointmentId(appt.id)}</td>
-                      <td>{serviceLabelMap[appt.service_code] || appt.service_code || "—"}</td>
-                      <td>{appt.doctor_name || "—"}</td>
-                      <td>{appt.slot_start ? new Date(appt.slot_start).toLocaleString() : "—"}</td>
-                      <td>
-                        <span className={`badge text-bg-${statusVariants[appt.status] || "secondary"}`}>
-                          {appt.status}
-                        </span>
-                      </td>
-                      <td>
-                        {appt.facility_name ? (
-                          <>
-                            <div className="small">{appt.facility_name}</div>
-                            <div className="text-muted small">{appt.provider_name}</div>
-                          </>
-                        ) : (
-                          <span className="text-muted small">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {appointments.length === 0 && (
-                    <tr>
-                      <td colSpan="6" className="text-center text-muted">
-                        No appointments yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
+                ))}
+                {paginatedAppointments.rows.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-center text-muted">
+                      No appointments yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="d-flex justify-content-between align-items-center mt-2">
+          <small className="text-muted">
+            Page {historyPage} of {paginatedAppointments.totalPages}
+          </small>
+          <div className="btn-group btn-group-sm">
+            <button
+              className="btn btn-outline-secondary"
+              disabled={historyPage <= 1}
+              onClick={() => setHistoryPage((p) => p - 1)}
+            >
+              Prev
+            </button>
+            <button
+              className="btn btn-outline-secondary"
+              disabled={historyPage >= paginatedAppointments.totalPages}
+              onClick={() => setHistoryPage((p) => p + 1)}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 
   const renderActivePanel = () => {
@@ -730,13 +904,7 @@ export default function Appointments() {
       case "appointments":
         return renderAppointmentPanel();
       case "history":
-        return renderPlaceholder(
-          "Visit history coming soon",
-          "You'll be able to see approved, cancelled, and completed appointments here.",
-          <button className="btn btn-outline-primary" disabled>
-            View history
-          </button>
-        );
+        return renderHistoryCard();
       case "documents":
         return renderPlaceholder(
           "Referral documents",
@@ -746,16 +914,153 @@ export default function Appointments() {
           </button>
         );
       case "messages":
-        return renderPlaceholder(
-          "Secure inbox",
-          "Chat with coordinators and specialists in one threaded experience.",
-          <button className="btn btn-success" disabled>
-            Launch inbox
-          </button>
-        );
+        navigate("/messages");
+        return null;
       default:
         return renderAppointmentPanel();
     }
+  };
+
+  const submitEditModal = async (e) => {
+    e.preventDefault();
+    if (!editModal.appointment) return;
+    const appointmentId = editModal.appointment.id;
+    const isCancel = editModal.mode === "cancel";
+    const payload = new FormData();
+    payload.append("appointment_id", appointmentId);
+    if (isCancel) {
+      payload.append("reason", editModal.reason || "Cancelled by patient");
+    } else {
+      payload.append("slot_start", editModal.newDate);
+    }
+    setEditModal((prev) => ({ ...prev, submitting: true, feedback: null }));
+    try {
+      if (isCancel) {
+        await http.post("/appointments/cancel", payload);
+        updateAppointmentInState(appointmentId, () => ({
+          status: "declined",
+          status_reason: editModal.reason || "Cancelled by patient",
+        }));
+      } else {
+        await http.post("/appointments/reschedule", payload);
+        updateAppointmentInState(appointmentId, () => ({
+          status: "pending",
+          status_reason: "Reschedule requested",
+          slot_start: editModal.newDate,
+        }));
+      }
+      await Promise.all([loadSummary(), loadAppointments()]);
+      setEditModal({
+        open: false,
+        appointment: null,
+        mode: "reschedule",
+        reason: "",
+        newDate: "",
+        feedback: null,
+        submitting: false,
+      });
+    } catch (error) {
+      setEditModal((prev) => ({
+        ...prev,
+        submitting: false,
+        feedback: error.response?.data?.message || "Unable to save changes.",
+      }));
+    }
+  };
+
+  const closeEditModal = () => {
+    setEditModal({
+      open: false,
+      appointment: null,
+      mode: "reschedule",
+      reason: "",
+      newDate: "",
+      feedback: null,
+      submitting: false,
+    });
+  };
+
+  const renderEditModal = () => {
+    if (!editModal.open || !editModal.appointment) return null;
+    const appt = editModal.appointment;
+    return (
+      <div className="modal d-block" tabIndex="-1" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Edit appointment {formatAppointmentId(appt.id)}</h5>
+              <button type="button" className="btn-close" onClick={closeEditModal}></button>
+            </div>
+            <form onSubmit={submitEditModal}>
+              <div className="modal-body">
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Service</label>
+                    <div className="form-control-plaintext">
+                      {serviceLabelMap[appt.service_code] || appt.service_code}
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Doctor</label>
+                    <div className="form-control-plaintext">{appt.doctor_name || "—"}</div>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Current slot</label>
+                    <div className="form-control-plaintext">
+                      {appt.slot_start ? new Date(appt.slot_start).toLocaleString() : "—"}
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Action</label>
+                    <select
+                      className="form-select"
+                      value={editModal.mode}
+                      onChange={(e) => setEditModal((prev) => ({ ...prev, mode: e.target.value }))}
+                    >
+                      <option value="reschedule">Reschedule</option>
+                      <option value="cancel">Cancel</option>
+                    </select>
+                  </div>
+                  {editModal.mode === "reschedule" && (
+                    <div className="col-md-6">
+                      <label className="form-label">New date &amp; time</label>
+                      <input
+                        type="datetime-local"
+                        className="form-control"
+                        value={editModal.newDate}
+                        onChange={(e) => setEditModal((prev) => ({ ...prev, newDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  )}
+                  {editModal.mode === "cancel" && (
+                    <div className="col-12">
+                      <label className="form-label">Reason</label>
+                      <textarea
+                        className="form-control"
+                        rows="2"
+                        value={editModal.reason}
+                        onChange={(e) => setEditModal((prev) => ({ ...prev, reason: e.target.value }))}
+                        required
+                      ></textarea>
+                    </div>
+                  )}
+                </div>
+                {editModal.feedback && <div className="alert alert-danger mt-3">{editModal.feedback}</div>}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline-secondary" onClick={closeEditModal}>
+                  Close
+                </button>
+                <button className="btn btn-primary" type="submit" disabled={editModal.submitting}>
+                  {editModal.submitting ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -768,13 +1073,20 @@ export default function Appointments() {
         { key: "documents", icon: "bi-file-earmark-arrow-up", label: "Documents" },
         { key: "messages", icon: "bi-chat-dots", label: "Messages" },
       ]}
-      onMenuSelect={setActivePanel}
+      onMenuSelect={(key) => {
+        if (key === "messages") {
+          navigate("/messages");
+        } else {
+          setActivePanel(key);
+        }
+      }}
       onLogout={async () => {
         await logout();
         navigate("/login", { replace: true });
       }}
     >
       {renderActivePanel()}
+      {renderEditModal()}
     </PortalLayout>
   );
 }

@@ -79,8 +79,13 @@ export default function PortalLayout({
                 className={item.key === activeKey ? "active" : ""}
                 onClick={() => handleMenuClick(item.key)}
               >
-                <i className={`bi ${item.icon}`}></i>
-                {item.label}
+                <div className="d-flex align-items-center w-100 justify-content-between">
+                  <span className="d-flex align-items-center gap-2">
+                    <i className={`bi ${item.icon}`}></i>
+                    {item.label}
+                  </span>
+                  {item.badge ? <span className="badge text-bg-primary">{item.badge}</span> : null}
+                </div>
               </button>
             )
           )}

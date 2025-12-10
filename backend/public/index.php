@@ -50,8 +50,15 @@ $router->get('/api/doctor/appointments/list', [Controllers\AppointmentController
 $router->get('/api/doctor/appointments/show', [Controllers\AppointmentController::class,'doctorAppointmentShow']);
 $router->post('/api/doctor/appointments/respond', [Controllers\AppointmentController::class,'doctorRespond']);
 $router->get('/api/doctor/notifications', [Controllers\AppointmentController::class,'doctorNotifications']);
+$router->get('/api/doctor/patients', [Controllers\AppointmentController::class,'doctorPatients']);
 $router->get('/api/appointments/summary', [Controllers\AppointmentController::class,'summary']);
 $router->post('/api/appointments',        [Controllers\AppointmentController::class,'create']);
 $router->get('/api/appointments/me',      [Controllers\AppointmentController::class,'mine']);
+$router->post('/api/appointments/cancel', [Controllers\AppointmentController::class,'cancelByPatient']);
+$router->post('/api/appointments/reschedule', [Controllers\AppointmentController::class,'rescheduleByPatient']);
+
+$router->get('/api/messages/contacts', [Controllers\MessageController::class,'contacts']);
+$router->get('/api/messages/thread', [Controllers\MessageController::class,'thread']);
+$router->post('/api/messages/send', [Controllers\MessageController::class,'send']);
 
 $router->dispatch();
