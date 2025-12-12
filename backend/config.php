@@ -9,8 +9,8 @@ return [
         'host'     => getenv('DB_HOST') ?: '127.0.0.1',
         'port'     => getenv('DB_PORT') ?: '3306',
         'database' => getenv('DB_NAME') ?: 'hacha_labs',
-        'username' => getenv('DB_USER') ?: 'root',
-        'password' => getenv('DB_PASS') ?: 'D3vP@$$vvorD',
+        'username' => getenv('DB_USER') ?: 'hacha_user',
+        'password' => getenv('DB_PASS') ?: 'hAcH@m1s-2025!',
         'charset'  => 'utf8mb4',
     ],
 ];
