@@ -11,7 +11,16 @@ export default function NewsFeed() {
     setLoading(true);
     http
       .get(showAll ? "/news?all=1" : "/news")
-      .then((r) => setItems(r.data))
+      .then((r) => {
+        const payload = r?.data;
+        if (Array.isArray(payload)) {
+          setItems(payload);
+        } else if (Array.isArray(payload?.data)) {
+          setItems(payload.data);
+        } else {
+          setItems([]);
+        }
+      })
       .finally(() => setLoading(false));
   }, [showAll]);
 
@@ -23,7 +32,7 @@ export default function NewsFeed() {
       </div>
       <div className="row g-3">
         {items.map((n) => (
-          <div className="col-md-4" key={n.id}>
+          <div className="col-md-4" key={n.id || n.title}>
             <Link to={`/news/${n.id}`} className="card h-100 card-hover text-decoration-none text-reset">
               {n.cover_path && <img src={n.cover_path} className="card-img-top" alt="cover" />}
               <div className="card-body">
@@ -34,6 +43,9 @@ export default function NewsFeed() {
             </Link>
           </div>
         ))}
+        {items.length === 0 && !loading && (
+          <div className="col-12 text-muted small">No news available right now.</div>
+        )}
       </div>
       <div className="text-center mt-3">
         <button className="btn btn-outline-primary btn-sm" onClick={() => setShowAll((v) => !v)}>
