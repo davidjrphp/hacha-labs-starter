@@ -1,53 +1,39 @@
-// export default function About(){return <div className="container py-5"><h2>About Us</h2><p>Explore our research programs.</p></div>}
+import { useState } from "react";
 
-export default function About(){
+export default function About() {
+  const [expanded, setExpanded] = useState(false);
+
+  const intro =
+    "Hacha Group of Companies is a diversified conglomerate at the intersection of healthcare and agriculture. We pair a modern medical laboratory, a community-focused clinic, and sustainable agroforestry ventures to enhance quality of life, guided by a holistic vision of wellness.";
+
+  const details =
+    " Our ecosystem spans three pillars: Hacha Research & Diagnostic Institute (Hacha Labs), delivering research-grade, precise diagnostics; Assah Chipulu Medical Center, offering accessible, compassionate clinical care; and Rythy Solutions Limited, advancing sustainable forestry and cash-crop production. Together we bridge medical science, nutrition, and environmental stewardship to build resilient communities. Across every subsidiary we stand for excellence, innovation, and meaningful community impact—uplifting people, protecting the environment, and driving socio-economic growth.";
+
   return (
     <section className="container py-5" data-aos="fade-up">
       <div className="row align-items-center g-4">
         <div className="col-lg-7">
           <h3 className="mb-3">About Our Company</h3>
           <p className="lead">
-            HRDI, formerly registered on 23rd
-            January 2020, and opened to the
-            public 13th October 2021 is a
-            people-focused, technology-driven
-            Research and Medical Diagnostic
-            Institute, with branches in Ndola
-            and Lusaka.
-            HRDI offers an extensive range of
-            screening and diagnostic tests to
-            support the prevention and
-            management of disease in the
-            health care sector.
-            The Institute has an excellent
-            record of assisting clinicians and
-            health facilities to manage
-            disease, improve and maintain
-            health and wellbeing
+            {expanded ? `${intro}${details}` : intro}
           </p>
-          <h3 className="mb-3">Company Background</h3>
-           <p className="background">
-                The Healthcare system in Zambia suffers from inadequacy,
-                inequalities, and inefficiency, when compared to peer countries.
-                Public expenditure on healthcare continue to average 10% of total
-                government expenditure, less than the 15% minimum target set by
-                the 2001 Abuja Declaration. The market scan of the medical
-                diagnostic industry reveals that, there are no diagnostic companies
-                with a dominant market share value. This creates a conducive
-                business environment for new entrants into the sector.
-                Research has shown that the diagnostic industry is expected to
-                expand due to the dual burden of disease and public health
-                laboratories' inability to meet demand for reliable, timely, and
-                quality-assured laboratory services, as well as prolonged stockouts
-                of critical laboratory commodities.
-                Similarly, advancements in medical diagnostic technologies, entails
-                that the industry is expected to continue to grow, and there has
-                recently been a renewed appreciation of the critical role private
-                medical laboratories play in supporting diagnosis and patient
-                management, disease surveillance, and outbreak investigations by
-                the public.
-           </p>
-          {/* <a className="btn btn-outline-secondary" href="/about">Read more</a> */}
+          <button
+            className="btn btn-outline-primary mb-3"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "Show less" : "Read more"}
+          </button>
+
+          <div className="mt-4">
+            <h4 className="mb-2">Company Background</h4>
+            <p className="background">
+              The healthcare system in Zambia faces gaps in adequacy, equity, and efficiency, with public expenditure still
+              below Abuja Declaration targets. The diagnostic market shows no dominant player, creating a conducive environment
+              for reliable entrants. Demand is rising due to a dual burden of disease and persistent stock-outs in public
+              laboratories. Coupled with rapid advances in diagnostic technology, this positions trusted private laboratories
+              to play a pivotal role in clinical management, surveillance, and outbreak investigations.
+            </p>
+          </div>
         </div>
         <div className="col-lg-5">
           <img className="img-fluid rounded-3 shadow-sm" src="/AifuNI.jpg" alt="HRDI" />

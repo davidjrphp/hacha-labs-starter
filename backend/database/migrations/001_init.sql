@@ -39,8 +39,7 @@ CREATE TABLE users (
 );
 
 INSERT INTO users (role_id, full_name, email, password_hash, status) VALUES
-  (1, 'System Administrator', 'admin@hacha-labs.com', '$2y$12$O.hqeruXEcSCktSTj9BZaubVAGzX2SqUMUwnHQj5qgJbVVGdMqMLO', 'active'),
-  (2, 'Dr. Maya Patel', 'doctor@hacha-labs.com', '$2y$12$9m2n42B.u3bZYC69VJ9SdOtN7.M0n/rJVfOKq24Tn0NdShA9K5ey.', 'active');
+  (1, 'System Administrator', 'admin@hacha-labs.com', '$2y$12$O.hqeruXEcSCktSTj9BZaubVAGzX2SqUMUwnHQj5qgJbVVGdMqMLO', 'active');
 
 -- ---------------------------------------------
 -- Doctors table
@@ -65,13 +64,6 @@ CREATE TABLE schedules (
   available BOOLEAN DEFAULT TRUE,
   FOREIGN KEY (doctor_id) REFERENCES doctors(id)
 );
-
-INSERT INTO doctors (user_id, specialty, bio) VALUES
-  (
-    (SELECT id FROM users WHERE email='doctor@hacha-labs.com' LIMIT 1),
-    'Haematology',
-    'Lead haematologist overseeing referral and diagnostic programs.'
-  );
 
 -- ---------------------------------------------
 -- Appointments table

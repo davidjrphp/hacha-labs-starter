@@ -37,7 +37,7 @@ export default function Login(){
           style={{height: '80px', width: 'auto'}}
         />
         <h5 className="mt-3 mb-0 fw-semibold" style={{color:'#003a70'}}>
-          Welcome to Hacha Labs Portal
+          Welcome to Hacha Portal
         </h5>
       </div>
 

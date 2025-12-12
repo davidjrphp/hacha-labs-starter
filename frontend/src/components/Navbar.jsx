@@ -34,7 +34,7 @@ export default function NavbarX() {
         {/* BRAND pinned left */}
         <Link to="/" className="navbar-brand d-flex align-items-center me-3">
           <img src="/hacha-logo.png" alt="Hacha Labs" className="brand-logo me-2" />
-          <span className="fw-semibold d-none d-sm-inline">Hacha Labs</span>
+          <span className="fw-semibold d-none d-sm-inline">HACHA Group of Companies</span>
         </Link>
 
         {/* Toggler */}

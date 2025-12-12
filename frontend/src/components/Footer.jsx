@@ -45,6 +45,7 @@ export default function Footer(){
         <hr/>
         <div className="d-flex justify-content-between small">
           <span>© {year} Hacha Labs. All rights reserved.</span>
+          <span>Powered By: Copy Place Technologies</span>
           <span>Fostering Health & Wellbeing</span>
         </div>
       </div>
