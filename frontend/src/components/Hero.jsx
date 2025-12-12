@@ -30,7 +30,16 @@ export default function Hero(){
   // load hero media (image/video)
   useEffect(() => {
     http.get("/media/hero")
-      .then(r => setSlides(r.data))
+      .then(r => {
+        const payload = r?.data;
+        if (Array.isArray(payload)) {
+          setSlides(payload);
+        } else if (Array.isArray(payload?.data)) {
+          setSlides(payload.data);
+        } else {
+          setSlides([]);
+        }
+      })
       .catch(() => setSlides([]));
   }, []);
 

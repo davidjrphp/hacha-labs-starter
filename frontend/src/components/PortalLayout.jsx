@@ -19,7 +19,8 @@ export default function PortalLayout({
   children,
 }) {
   const { user } = useAuth();
-  const [activeKey, setActiveKey] = useState(menuItems[0]?.key ?? "dashboard");
+  const safeMenu = Array.isArray(menuItems) ? menuItems : [];
+  const [activeKey, setActiveKey] = useState(safeMenu[0]?.key ?? "dashboard");
   const [expanded, setExpanded] = useState({});
 
   const handleMenuClick = (key) => {
@@ -42,8 +43,8 @@ export default function PortalLayout({
           </div>
         </div>
         <div className="portal-menu">
-          {menuItems.map((item) =>
-            item.children ? (
+          {safeMenu.map((item) =>
+            Array.isArray(item.children) ? (
               <div key={item.key} className="w-100">
                 <button
                   type="button"
