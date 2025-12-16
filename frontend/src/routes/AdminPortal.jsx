@@ -77,6 +77,7 @@ export default function AdminPortal() {
   const [showDistrictModal, setShowDistrictModal] = useState(false);
   const [showFacilityModal, setShowFacilityModal] = useState(false);
   const [showTitleModal, setShowTitleModal] = useState(false);
+  const [showOfficeModal, setShowOfficeModal] = useState(false);
   const [provinceForm, setProvinceForm] = useState({ name: "" });
   const [districtForm, setDistrictForm] = useState({ province_id: "", name: "" });
   const [facilityForm, setFacilityForm] = useState({
@@ -101,6 +102,26 @@ export default function AdminPortal() {
   const [agriLoading, setAgriLoading] = useState(false);
   const [agriAction, setAgriAction] = useState(null);
   const [agriBusyId, setAgriBusyId] = useState(null);
+  const [officeForm, setOfficeForm] = useState({
+    province: "",
+    district: "",
+    description: "",
+    photo: null,
+  });
+  const [officeSubmitting, setOfficeSubmitting] = useState(false);
+  const [officeFeedback, setOfficeFeedback] = useState(null);
+  const [offices, setOffices] = useState([]);
+  const [officeLoading, setOfficeLoading] = useState(false);
+  const [officeBusyId, setOfficeBusyId] = useState(null);
+  const assetBase = useMemo(() => {
+    const base = http.defaults.baseURL || "";
+    return base.replace(/\/api\/?$/, "/");
+  }, []);
+  const resolveAsset = (path) => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    return `${assetBase.replace(/\/$/, "")}${path}`;
+  };
   const defaultStaffForm = {
     name: "",
     staff_title_id: "",
@@ -347,6 +368,18 @@ const statCards = useMemo(
     }
   }, []);
 
+  const loadOffices = useCallback(async () => {
+    setOfficeLoading(true);
+    try {
+      const { data } = await http.get("/admin/offices");
+      setOffices(Array.isArray(data) ? data : []);
+    } catch {
+      setOffices([]);
+    } finally {
+      setOfficeLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activePanel === "dashboard") {
       loadStats();
@@ -374,8 +407,9 @@ useEffect(() => {
     loadGeoData();
     loadStaffTitles();
     loadAgriPosts();
+    loadOffices();
   }
-}, [activePanel, loadGeoData, loadStaffTitles, loadAgriPosts]);
+}, [activePanel, loadGeoData, loadStaffTitles, loadAgriPosts, loadOffices]);
 
   const updateHeroDraft = (id, field, value) => {
     setHeroAssets((prev) => prev.map((asset) => (asset.id === id ? { ...asset, [field]: value } : asset)));
@@ -740,6 +774,92 @@ useEffect(() => {
       });
     } finally {
       setAgriSubmitting(false);
+    }
+  };
+
+  const submitOffice = async (e) => {
+    e.preventDefault();
+    setOfficeFeedback(null);
+    const formData = new FormData();
+    formData.append("province", officeForm.province);
+    formData.append("district", officeForm.district);
+    formData.append("description", officeForm.description);
+    if (officeForm.photo) {
+      formData.append("photo", officeForm.photo);
+    }
+    setOfficeSubmitting(true);
+    try {
+      await http.post("/admin/offices", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setOfficeFeedback({ type: "success", message: "Office location saved." });
+      setOfficeForm({ province: "", district: "", description: "", photo: null });
+      setShowOfficeModal(false);
+      await loadOffices();
+    } catch (error) {
+      setOfficeFeedback({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to save office.",
+      });
+    } finally {
+      setOfficeSubmitting(false);
+    }
+  };
+
+  const deleteOffice = async (id) => {
+    if (!window.confirm("Delete this office location?")) return;
+    setOfficeBusyId(id);
+    try {
+      const formData = new FormData();
+      formData.append("id", id);
+      await http.post("/admin/offices/delete", formData);
+      await loadOffices();
+    } finally {
+      setOfficeBusyId(null);
+    }
+  };
+
+  const startEditOffice = (office) => {
+    setOfficeForm({
+      province: office.province || "",
+      district: office.district || "",
+      description: office.description || "",
+      photo: null,
+    });
+    setOfficeFeedback(null);
+    setShowOfficeModal(true);
+    setOfficeBusyId(office.id);
+  };
+
+  const submitOfficeUpdate = async (e) => {
+    e.preventDefault();
+    if (!officeBusyId) return submitOffice(e);
+    setOfficeFeedback(null);
+    const formData = new FormData();
+    formData.append("id", officeBusyId);
+    formData.append("province", officeForm.province);
+    formData.append("district", officeForm.district);
+    formData.append("description", officeForm.description);
+    if (officeForm.photo) {
+      formData.append("photo", officeForm.photo);
+    }
+    setOfficeSubmitting(true);
+    try {
+      await http.post("/admin/offices/update", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setOfficeFeedback({ type: "success", message: "Office updated." });
+      setOfficeForm({ province: "", district: "", description: "", photo: null });
+      setShowOfficeModal(false);
+      setOfficeBusyId(null);
+      await loadOffices();
+    } catch (error) {
+      setOfficeFeedback({
+        type: "danger",
+        message: error.response?.data?.message || "Unable to update office.",
+      });
+    } finally {
+      setOfficeSubmitting(false);
     }
   };
 
@@ -1721,6 +1841,89 @@ useEffect(() => {
             <button className="btn btn-outline-primary" onClick={() => setShowFacilityModal(true)}>
               <i className="bi bi-hospital me-2"></i>Add facility
             </button>
+            <button className="btn btn-outline-primary" onClick={() => setShowOfficeModal(true)}>
+              <i className="bi bi-geo-alt me-2"></i>Add office location
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card portal-card mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div className="portal-section-title mb-1">Office locations</div>
+              <small className="text-muted">Manage the locations shown on the public site.</small>
+            </div>
+            <button className="btn btn-outline-secondary btn-sm" onClick={loadOffices} disabled={officeLoading}>
+              <i className="bi bi-arrow-repeat me-1"></i>Refresh
+            </button>
+          </div>
+          {officeFeedback && (
+            <div className={`alert alert-${officeFeedback.type}`} role="alert">
+              {officeFeedback.message}
+            </div>
+          )}
+          <div className="table-responsive">
+            {officeLoading ? (
+              <div className="text-center py-4">
+                <div className="spinner-border text-primary" role="status"></div>
+              </div>
+            ) : (
+              <table className="table portal-table align-middle">
+                <thead>
+                  <tr>
+                    <th>Province</th>
+                    <th>District</th>
+                    <th>Description</th>
+                    <th>Photo</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {offices.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.province}</td>
+                      <td>{o.district}</td>
+                      <td className="small text-muted" style={{ maxWidth: "260px" }}>
+                        {o.description || "—"}
+                      </td>
+                    <td>
+                      {o.photo_path ? (
+                        <a href={resolveAsset(o.photo_path)} target="_blank" rel="noreferrer">
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-muted small">—</span>
+                      )}
+                    </td>
+                      <td className="d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => startEditOffice(o)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => deleteOffice(o.id)}
+                          disabled={officeBusyId === o.id}
+                        >
+                          {officeBusyId === o.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {offices.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="text-center text-muted">
+                        No offices added yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -1989,6 +2192,57 @@ useEffect(() => {
             </button>
             <button className="btn btn-primary" type="submit" disabled={titleSubmitting}>
               {titleSubmitting ? "Saving…" : "Save title"}
+            </button>
+          </div>
+        </form>
+      </PortalModal>
+
+      <PortalModal show={showOfficeModal} title={officeBusyId ? "Edit office location" : "Add office location"} onClose={() => { setShowOfficeModal(false); setOfficeBusyId(null);} }>
+        {officeFeedback && (
+          <div className={`alert alert-${officeFeedback.type}`} role="alert">
+            {officeFeedback.message}
+          </div>
+        )}
+        <form onSubmit={officeBusyId ? submitOfficeUpdate : submitOffice}>
+          <div className="mb-3">
+            <label className="form-label">Province</label>
+            <input
+              className="form-control"
+              value={officeForm.province}
+              onChange={(e) => setOfficeForm({ ...officeForm, province: e.target.value })}
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">District</label>
+            <input
+              className="form-control"
+              value={officeForm.district}
+              onChange={(e) => setOfficeForm({ ...officeForm, district: e.target.value })}
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Description</label>
+            <textarea
+              className="form-control"
+              rows="3"
+              value={officeForm.description}
+              onChange={(e) => setOfficeForm({ ...officeForm, description: e.target.value })}
+            ></textarea>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Photo</label>
+            <input
+              type="file"
+              className="form-control"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setOfficeForm({ ...officeForm, photo: e.target.files?.[0] || null })}
+            />
+          </div>
+          <div className="d-flex justify-content-end">
+            <button className="btn btn-primary" type="submit" disabled={officeSubmitting}>
+              {officeSubmitting ? "Saving..." : "Save location"}
             </button>
           </div>
         </form>

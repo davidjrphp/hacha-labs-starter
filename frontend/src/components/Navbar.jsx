@@ -85,12 +85,12 @@ export default function NavbarX() {
 
                 <li className="nav-item dropdown">
                   <button className="nav-link dropdown-toggle bg-transparent border-0" data-bs-toggle="dropdown">
-                    Services
+                    Companies
                   </button>
                   <ul className="dropdown-menu dropdown-menu-end">
-                    <li><Link className="dropdown-item" to="/services">Lab service</Link></li>
-                    <li><Link className="dropdown-item" to="/specialized/agri">Agro forest</Link></li>
-                    <li><Link className="dropdown-item" to="/services/wellness">Clinical</Link></li>
+                    <li><Link className="dropdown-item" to="/services">Hacha Labs</Link></li>
+                    <li><Link className="dropdown-item" to="/services/acmc">AC Medical Center</Link></li>
+                    <li><Link className="dropdown-item" to="/specialized/agri">Rythy Solutions</Link></li>
                   </ul>
                 </li>
 

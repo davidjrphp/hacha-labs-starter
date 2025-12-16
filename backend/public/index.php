@@ -42,6 +42,12 @@ $router->post('/api/admin/agri', [Controllers\AgriController::class,'store']);
 $router->post('/api/admin/agri/update', [Controllers\AgriController::class,'update']);
 $router->post('/api/admin/agri/delete', [Controllers\AgriController::class,'delete']);
 
+$router->get('/api/offices', [Controllers\OfficeController::class,'list']);
+$router->get('/api/admin/offices', [Controllers\OfficeController::class,'adminList']);
+$router->post('/api/admin/offices', [Controllers\OfficeController::class,'store']);
+$router->post('/api/admin/offices/update', [Controllers\OfficeController::class,'update']);
+$router->post('/api/admin/offices/delete', [Controllers\OfficeController::class,'delete']);
+
 $router->get('/api/doctors/availability', [Controllers\AppointmentController::class,'availability']);
 $router->get('/api/appointments/check', [Controllers\AppointmentController::class,'checkAvailability']);
 $router->get('/api/admin/appointments/latest', [Controllers\AppointmentController::class,'adminLatest']);

@@ -55,7 +55,10 @@ const colors = ["#0ba5a4", "#0f70b7", "#e07a00", "#9333ea", "#0ba5a4", "#0f70b7"
 export default function Services() {
   return (
     <div className="pb-5">
-      <div className="bg-primary text-white py-5">
+      <div
+        className="text-white py-5"
+        style={{ background: "linear-gradient(120deg, #0f70b7, #f78f1e)" }}
+      >
         <div className="container">
           <h1 className="fw-bold">Our Services</h1>
           <p className="lead mb-0">Fostering Health &amp; Wellbeing</p>

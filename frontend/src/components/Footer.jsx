@@ -15,14 +15,13 @@ export default function Footer(){
           </div>
           <div className="col-md-4">
             <h6>Contact</h6>
-            <div>Email: info@hachalabs.com</div>
+            <div>Email: tchabu06@gmail.com</div>
             <div>Phone: +260979646633 </div>
-            <div>Location: Flat 16, block 3, Chilenje,
-                off Chilimbulu Road, Opposite Chilenje Hospital,
-                Lusaka, Zambia
-                Hilltop Hospital, Independence Way road, Ndola,
-                Zambia
-                Cardinal Memorial Adam Hospital, Lusaka, Zambia 
+            <div>
+              Location:{" "}
+              <a href="/locations" className="text-decoration-underline">
+                View all offices
+              </a>
             </div>
             <div className="mt-2 d-flex gap-2">
               <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-facebook"></i></a>

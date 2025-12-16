@@ -1,7 +1,4 @@
-import { useMemo } from "react";
-import { useParams } from "react-router-dom";
-
-const ACMC_SECTIONS = [
+const services = [
   {
     title: "Primary care",
     items: [
@@ -30,47 +27,22 @@ const ACMC_SECTIONS = [
   },
 ];
 
-const SERVICE_PAGES = {
-  wellness: {
-    title: "Assah Chipulu Medical Centre (ACMC)",
-    subtitle: "Clinical services, diagnostics, and research under one roof.",
-    sections: ACMC_SECTIONS,
-    contact: "Samfya • Tel: 0979 646 633 • Email: tchabu06@gmail.com",
-  },
-  acmc: {
-    title: "Assah Chipulu Medical Centre (ACMC)",
-    subtitle: "Clinical services, diagnostics, and research under one roof.",
-    sections: ACMC_SECTIONS,
-    contact: "Samfya • Tel: 0979 646 633 • Email: tchabu06@gmail.com",
-  },
-};
-
-export default function Service() {
-  const { slug } = useParams();
-  const page = useMemo(() => SERVICE_PAGES[slug] || null, [slug]);
-
-  if (!page) {
-    return (
-      <div className="container py-5" style={{ minHeight: "60vh" }}>
-        <h2 className="mb-2">Service</h2>
-        <p className="text-muted">The requested service could not be found.</p>
-      </div>
-    );
-  }
-
+export default function ACMedicalCenter() {
   return (
     <div className="pb-5">
       <div className="text-white py-5" style={{ background: "linear-gradient(120deg, #0f70b7, #f78f1e)" }}>
         <div className="container">
-          <h1 className="fw-bold mb-2">{page.title}</h1>
-          <p className="lead mb-0">{page.subtitle}</p>
-          {page.contact && <div className="mt-2 small">{page.contact}</div>}
+          <h1 className="fw-bold mb-2">Assah Chipulu Medical Centre</h1>
+          <p className="lead mb-0">Comprehensive clinical care, diagnostics, and community health research.</p>
+          <div className="mt-3">
+            <div className="small">Tel: 0979 646 633 • Email: tchabu06@gmail.com</div>
+          </div>
         </div>
       </div>
 
       <div className="container py-5">
         <div className="row g-4">
-          {page.sections.map((section, idx) => (
+          {services.map((section, idx) => (
             <div className="col-md-6 col-lg-4" key={`${section.title}-${idx}`}>
               <div className="card h-100 shadow-sm">
                 <div className="card-header text-white fw-semibold" style={{ background: section.color }}>

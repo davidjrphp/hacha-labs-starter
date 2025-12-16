@@ -24,6 +24,8 @@ import NewsDetail from "./routes/NewsDetail.jsx";
 import SpecializedAgri from "./routes/SpecializedAgri.jsx";
 import SpecializedOther from "./routes/SpecializedOther.jsx";
 import SearchResults from "./routes/SearchResults.jsx";
+import ACMedicalCenter from "./routes/ACMedicalCenter.jsx";
+import Locations from "./routes/Locations.jsx";
 
 export default function App(){
   const [theme,setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -45,6 +47,8 @@ export default function App(){
             <Route path="/register" element={<Register/>}/>
             <Route path="/specialized/agri" element={<SpecializedAgri/>}/>
             <Route path="/specialized/other" element={<SpecializedOther/>}/>
+            <Route path="/services/acmc" element={<ACMedicalCenter/>}/>
+            <Route path="/locations" element={<Locations/>}/>
           </Route>
           <Route path="/appointments" element={<Protected roles={['patient']}><Appointments/></Protected>}/>
           <Route path="/messages" element={<Protected roles={['patient']}><Messages/></Protected>}/>
