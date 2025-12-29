@@ -25,6 +25,7 @@ export default function Footer(){
             </div>
             <div className="mt-2 d-flex gap-2">
               <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-facebook"></i></a>
+              <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-tiktok"></i></a>
               <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-twitter-x"></i></a>
               <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-instagram"></i></a>
               <a className="btn btn-outline-secondary btn-sm" href="#"><i className="bi bi-linkedin"></i></a>

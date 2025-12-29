@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import http from "../api/http.js";
 
 const fallback = [
-  { id:1, name:"Dr. T. Chabu", role_title:"Pathologist", photo_path:"/lab-technologist.jpg" },
-  { id:2, name:"Dr. B. David", role_title:"Molecular Biologist", photo_path:"/dee.jpg" },
-  { id:3, name:"Mr. N. Kameya", role_title:"Lab Technologist", photo_path:"/Kameya.png" },
-  { id:4, name:"Ms.. K. Banda", role_title:"QA Lead", photo_path:"/scaled.jpg" }
+  { id:1, name:"", role_title:"", photo_path:"" },
+  { id:2, name:"", role_title:"", photo_path:"" },
+  { id:3, name:"", role_title:"", photo_path:"" },
+  { id:4, name:"", role_title:"", photo_path:"" }
 ];
 
 export default function StaffCarousel(){

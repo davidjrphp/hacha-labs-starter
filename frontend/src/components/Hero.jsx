@@ -74,6 +74,7 @@ export default function Hero(){
     <div className="hero-bottombar d-flex gap-2">
       <Link to="/appointments" className="btn btn-primary btn-sm">Request Appointment</Link>
       <a href="https://facebook.com" className="btn btn-outline-light btn-sm" aria-label="Facebook"><i className="bi bi-facebook"></i></a>
+      <a href="https://tiktok.com/" className="btn btn-outline-light btn-sm" aria-label="TikTok"><i className="bi bi-tiktok"></i></a>
       <a href="https://www.linkedin.com/company/" className="btn btn-outline-light btn-sm" aria-label="LinkedIn"><i className="bi bi-linkedin"></i></a>
       <a href="https://x.com/" className="btn btn-outline-light btn-sm" aria-label="X"><i className="bi bi-twitter-x"></i></a>
       <a href="https://instagram.com/" className="btn btn-outline-light btn-sm" aria-label="Instagram"><i className="bi bi-instagram"></i></a>
@@ -119,7 +120,7 @@ export default function Hero(){
 
           {slides.length === 0 && (
             <div className="carousel-item active">
-              <img src="/microscope.jpg" className="d-block w-100" alt="Hacha Labs" />
+              <img src="" className="d-block w-100" alt="Hacha Labs" />
             </div>
           )}
         </div>

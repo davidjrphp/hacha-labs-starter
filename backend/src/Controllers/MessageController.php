@@ -92,20 +92,36 @@ class MessageController {
 
   public function send() {
     $uid = $this->requireAuth();
-    $peerId = (int)($_POST['to'] ?? 0);
-    $body = trim($_POST['body'] ?? '');
+
+    // Support JSON requests (application/json) and classic form POSTs
+    $data = $_POST;
+    if (empty($data)) {
+      $raw = file_get_contents('php://input');
+      $json = json_decode($raw, true);
+      if (is_array($json)) {
+        $data = $json;
+      }
+    }
+
+    $peerId = (int)($data['to'] ?? 0);
+    $body = trim((string)($data['body'] ?? ''));
+
     if ($peerId <= 0 || $body === '') {
       http_response_code(422);
       return ['message' => 'Recipient and message are required'];
     }
+
     $pdo = DB::conn();
     $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, body, created_at, is_read) VALUES (?, ?, ?, NOW(), 0)");
     $stmt->execute([$uid, $peerId, $body]);
+
+    $newId = (int)$pdo->lastInsertId();
+
     return [
       'message' => 'sent',
-      'id' => (int)$pdo->lastInsertId(),
+      'id' => $newId,
       'payload' => [
-        'id' => (int)$pdo->lastInsertId(),
+        'id' => $newId,
         'sender_id' => $uid,
         'receiver_id' => $peerId,
         'body' => $body,
@@ -114,4 +130,5 @@ class MessageController {
       ],
     ];
   }
+
 }
